@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>My Account — Mirador de Calahonda</title>
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <a class="brand" href="/">
+      <span class="mark">M</span>
+      <span class="name">Mirador de Calahonda</span>
+    </a>
+    <nav class="main-nav">
+      <a href="/#about">The flat</a>
+      <a href="/#gallery">Photos</a>
+      <a href="/things-to-do.html">Things to do</a>
+    </nav>
+    <div class="nav-account" id="nav-account"></div>
+  </div>
+</header>
+
+<div id="signed-out-notice" style="display:none">
+  <div class="container" style="padding:80px 24px;text-align:center">
+    <h2>Please log in</h2>
+    <p style="margin:0 auto 20px">You need an account to book a stay or manage bookings.</p>
+    <button class="btn btn-primary" id="signed-out-login-btn">Log in</button>
+  </div>
+</div>
+
+<div id="dash-app" style="display:none">
+  <div class="dash-header">
+    <div class="container">
+      <h1 id="dash-title">My account</h1>
+      <p id="dash-sub" style="color:var(--ink-soft)"></p>
+      <div class="dash-tabs" id="dash-tabs"></div>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- New booking -->
+    <div class="dash-panel" id="panel-new-booking">
+      <h2>Request a stay</h2>
+      <p>Pick a check-in date, then a check-out date from the available (unshaded) days. Your booking is created as <strong>provisional</strong> until an admin authorises it.</p>
+      <div class="calendar-card" style="max-width:760px">
+        <div class="calendar-toolbar">
+          <h3 id="booking-cal-label">Loading…</h3>
+          <div class="calendar-nav">
+            <button id="booking-cal-prev" aria-label="Previous months">&#8249;</button>
+            <button id="booking-cal-next" aria-label="Next months">&#8250;</button>
+          </div>
+        </div>
+        <div class="calendar-months" id="booking-cal-months" style="grid-template-columns:1fr"></div>
+        <div class="calendar-legend">
+          <span><span class="swatch available"></span> Available</span>
+          <span><span class="swatch booked"></span> Booked</span>
+        </div>
+      </div>
+      <div style="margin-top:20px;max-width:420px">
+        <div class="form-error" id="booking-error"></div>
+        <div class="form-ok" id="booking-ok"></div>
+        <p id="selection-summary" style="font-weight:600"></p>
+        <div class="field">
+          <label for="booking-notes">Anything we should know? (optional)</label>
+          <textarea id="booking-notes" rows="3"></textarea>
+        </div>
+        <button class="btn btn-primary" id="submit-booking-btn" disabled>Request these dates</button>
+        <button class="btn btn-ghost btn-small" id="reset-selection-btn" style="margin-left:8px">Clear selection</button>
+      </div>
+    </div>
+
+    <!-- My bookings -->
+    <div class="dash-panel" id="panel-my-bookings">
+      <h2>My bookings</h2>
+      <ul class="booking-list" id="my-bookings-list"></ul>
+    </div>
+
+    <!-- Admin: all bookings -->
+    <div class="dash-panel" id="panel-all-bookings">
+      <h2>All bookings</h2>
+      <p style="color:var(--ink-soft)">Authorise a provisional booking once you're happy to confirm it, or cancel one that shouldn't go ahead.</p>
+      <ul class="booking-list" id="all-bookings-list"></ul>
+    </div>
+
+    <!-- Admin: settings -->
+    <div class="dash-panel" id="panel-settings">
+      <h2>Calendar settings</h2>
+      <div class="admin-settings-card">
+        <p>Paste the linked Google Calendar feed so bookings made elsewhere also show as "booked" on the public calendar.</p>
+        <div class="field">
+          <label for="gcal-url">Google Calendar iCal link (or any .ics URL)</label>
+          <input id="gcal-url" type="url" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics" />
+        </div>
+        <div class="note-card" style="margin-bottom:16px;font-size:0.85rem">
+          In Google Calendar: Settings → your calendar → <em>Integrate calendar</em> → copy the "Secret address in iCal format" link.
+        </div>
+        <div class="form-error" id="settings-error"></div>
+        <div class="form-ok" id="settings-ok"></div>
+        <button class="btn btn-primary" id="save-settings-btn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/calendar.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  let bookingCal = { anchorYear: new Date().getFullYear(), anchorMonth: new Date().getMonth(), ranges: [], start: null, end: null };
+
+  const TABS = {
+    user: [
+      { id: 'new-booking', label: 'New booking' },
+      { id: 'my-bookings', label: 'My bookings' },
+    ],
+    admin: [
+      { id: 'new-booking', label: 'New booking' },
+      { id: 'my-bookings', label: 'My bookings' },
+      { id: 'all-bookings', label: 'All bookings' },
+      { id: 'settings', label: 'Calendar settings' },
+    ],
+  };
+
+  function showTab(id) {
+    document.querySelectorAll('.dash-panel').forEach((p) => p.classList.remove('active'));
+    document.querySelectorAll('.dash-tab').forEach((t) => t.classList.remove('active'));
+    document.getElementById('panel-' + id).classList.add('active');
+    document.querySelector(`.dash-tab[data-tab="${id}"]`).classList.add('active');
+    if (id === 'my-bookings') loadMyBookings();
+    if (id === 'all-bookings') loadAllBookings();
+    if (id === 'settings') loadSettings();
+  }
+
+  function buildTabs(role) {
+    const tabs = TABS[role] || TABS.user;
+    document.getElementById('dash-tabs').innerHTML = tabs
+      .map((t) => `<button class="dash-tab" data-tab="${t.id}">${t.label}</button>`)
+      .join('');
+    tabs.forEach((t) => {
+      document.querySelector(`.dash-tab[data-tab="${t.id}"]`).addEventListener('click', () => showTab(t.id));
+    });
+  }
+
+  function statusPill(status) {
+    return `<span class="status-pill ${status}">${status}</span>`;
+  }
+  function fmtRange(start, end) {
+    const s = new Date(start), e = new Date(end);
+    const opts = { day: 'numeric', month: 'short', year: 'numeric' };
+    return `${s.toLocaleDateString('en-GB', opts)} → ${e.toLocaleDateString('en-GB', opts)}`;
+  }
+
+  async function loadMyBookings() {
+    const list = document.getElementById('my-bookings-list');
+    list.innerHTML = '<li class="empty-state">Loading…</li>';
+    const { bookings } = await Api.myBookings();
+    if (!bookings.length) { list.innerHTML = '<li class="empty-state">No bookings yet — head to "New booking" to request some dates.</li>'; return; }
+    list.innerHTML = bookings.map((b) => `
+      <li class="booking-row">
+        <div>
+          <div class="booking-dates">${fmtRange(b.start_date, b.end_date)}</div>
+          <div class="booking-meta">Requested ${new Date(b.created_at).toLocaleDateString('en-GB')}${b.notes ? ' · ' + b.notes : ''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          ${statusPill(b.status)}
+          ${b.status !== 'cancelled' ? `<button class="btn btn-ghost btn-small cancel-btn" data-id="${b.id}">Cancel</button>` : ''}
+        </div>
+      </li>
+    `).join('');
+    list.querySelectorAll('.cancel-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        await Api.cancelBooking(btn.dataset.id);
+        loadMyBookings();
+      });
+    });
+  }
+
+  async function loadAllBookings() {
+    const list = document.getElementById('all-bookings-list');
+    list.innerHTML = '<li class="empty-state">Loading…</li>';
+    const { bookings } = await Api.allBookings();
+    if (!bookings.length) { list.innerHTML = '<li class="empty-state">No bookings yet.</li>'; return; }
+    list.innerHTML = bookings.map((b) => `
+      <li class="booking-row">
+        <div>
+          <div class="booking-dates">${fmtRange(b.start_date, b.end_date)}</div>
+          <div class="booking-meta">${b.guest_name} · ${b.guest_email} · ${b.guest_phone}${b.notes ? ' · ' + b.notes : ''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          ${statusPill(b.status)}
+          ${b.status === 'provisional' ? `<button class="btn btn-primary btn-small authorise-btn" data-id="${b.id}">Authorise</button>` : ''}
+          ${b.status !== 'cancelled' ? `<button class="btn btn-ghost btn-small cancel-btn" data-id="${b.id}">Cancel</button>` : ''}
+        </div>
+      </li>
+    `).join('');
+    list.querySelectorAll('.authorise-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => { await Api.authoriseBooking(btn.dataset.id); loadAllBookings(); });
+    });
+    list.querySelectorAll('.cancel-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => { await Api.cancelBooking(btn.dataset.id); loadAllBookings(); });
+    });
+  }
+
+  async function loadSettings() {
+    const { settings } = await Api.adminSettings();
+    document.getElementById('gcal-url').value = (settings && settings.google_calendar_url) || '';
+  }
+
+  document.getElementById('save-settings-btn').addEventListener('click', async () => {
+    const errEl = document.getElementById('settings-error');
+    const okEl = document.getElementById('settings-ok');
+    errEl.classList.remove('show'); okEl.classList.remove('show');
+    try {
+      await Api.saveAdminSettings({ google_calendar_url: document.getElementById('gcal-url').value.trim() });
+      okEl.textContent = 'Saved.'; okEl.classList.add('show');
+    } catch (e) {
+      errEl.textContent = e.message; errEl.classList.add('show');
+    }
+  });
+
+  /* -------- Booking calendar (date-range picker) -------- */
+
+  async function loadBookingCalendar() {
+    const from = new Date().toISOString().slice(0, 10);
+    const toDate = new Date(); toDate.setMonth(toDate.getMonth() + 13);
+    const { ranges } = await Api.availability(from, toDate.toISOString().slice(0, 10));
+    bookingCal.ranges = ranges;
+    drawBookingCalendar();
+  }
+
+  function drawBookingCalendar() {
+    const container = document.getElementById('booking-cal-months');
+    renderCalendarMonths(container, bookingCal.anchorYear, bookingCal.anchorMonth, 1, bookingCal.ranges, {
+      selectable: true,
+      selectedStart: bookingCal.start,
+      selectedEnd: bookingCal.end,
+      onSelect: onDaySelected,
+    });
+    const label = new Date(bookingCal.anchorYear, bookingCal.anchorMonth, 1);
+    document.getElementById('booking-cal-label').textContent = label.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+    updateSelectionSummary();
+  }
+
+  function onDaySelected(dateStr) {
+    if (!bookingCal.start || (bookingCal.start && bookingCal.end)) {
+      bookingCal.start = dateStr;
+      bookingCal.end = null;
+    } else if (dateStr > bookingCal.start) {
+      // Reject the range if it crosses an already-booked date.
+      const crossesBooked = bookingCal.ranges.some((r) => r.start < dateStr && r.end > bookingCal.start);
+      if (crossesBooked) {
+        bookingCal.start = dateStr;
+        bookingCal.end = null;
+      } else {
+        bookingCal.end = dateStr;
+      }
+    } else {
+      bookingCal.start = dateStr;
+      bookingCal.end = null;
+    }
+    drawBookingCalendar();
+  }
+
+  function updateSelectionSummary() {
+    const summary = document.getElementById('selection-summary');
+    const submitBtn = document.getElementById('submit-booking-btn');
+    if (bookingCal.start && bookingCal.end) {
+      summary.textContent = `${fmtRange(bookingCal.start, bookingCal.end)}`;
+      submitBtn.disabled = false;
+    } else if (bookingCal.start) {
+      summary.textContent = `Check-in: ${bookingCal.start} — now pick a check-out date`;
+      submitBtn.disabled = true;
+    } else {
+      summary.textContent = '';
+      submitBtn.disabled = true;
+    }
+  }
+
+  document.getElementById('booking-cal-prev').addEventListener('click', () => {
+    bookingCal.anchorMonth -= 1;
+    if (bookingCal.anchorMonth < 0) { bookingCal.anchorMonth = 11; bookingCal.anchorYear -= 1; }
+    drawBookingCalendar();
+  });
+  document.getElementById('booking-cal-next').addEventListener('click', () => {
+    bookingCal.anchorMonth += 1;
+    if (bookingCal.anchorMonth > 11) { bookingCal.anchorMonth = 0; bookingCal.anchorYear += 1; }
+    drawBookingCalendar();
+  });
+  document.getElementById('reset-selection-btn').addEventListener('click', () => {
+    bookingCal.start = null; bookingCal.end = null; drawBookingCalendar();
+  });
+
+  document.getElementById('submit-booking-btn').addEventListener('click', async () => {
+    const errEl = document.getElementById('booking-error');
+    const okEl = document.getElementById('booking-ok');
+    errEl.classList.remove('show'); okEl.classList.remove('show');
+    try {
+      await Api.createBooking({
+        start_date: bookingCal.start,
+        end_date: bookingCal.end,
+        notes: document.getElementById('booking-notes').value.trim(),
+      });
+      okEl.textContent = 'Booking requested — it will show as provisional until an admin authorises it.';
+      okEl.classList.add('show');
+      bookingCal.start = null; bookingCal.end = null;
+      document.getElementById('booking-notes').value = '';
+      loadBookingCalendar();
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.classList.add('show');
+    }
+  });
+
+  /* -------- Boot -------- */
+
+  function applyDatesFromQuery() {
+    const params = new URLSearchParams(window.location.search);
+    const dates = params.get('dates');
+    if (dates) {
+      const [start, end] = dates.split(',');
+      if (start) bookingCal.start = start;
+      if (end) bookingCal.end = end;
+    }
+  }
+
+  (async function boot() {
+    const user = await initSession();
+    if (!user) {
+      document.getElementById('signed-out-notice').style.display = 'block';
+      document.getElementById('signed-out-login-btn').addEventListener('click', () => openAuthModal('login'));
+      return;
+    }
+    document.getElementById('dash-app').style.display = 'block';
+    document.getElementById('dash-title').textContent = user.role === 'admin' ? 'Admin dashboard' : 'My account';
+    document.getElementById('dash-sub').textContent = user.role === 'admin'
+      ? 'Manage bookings and the linked calendar for Mirador de Calahonda.'
+      : 'Request a stay and track your bookings.';
+    buildTabs(user.role);
+    applyDatesFromQuery();
+    await loadBookingCalendar();
+    showTab('new-booking');
+  })();
+</script>
+</body>
+</html>

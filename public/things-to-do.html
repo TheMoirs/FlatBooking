@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Things To Do — Mirador de Calahonda</title>
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <a class="brand" href="/">
+      <span class="mark">M</span>
+      <span class="name">Mirador de Calahonda</span>
+    </a>
+    <nav class="main-nav">
+      <a href="/#about">The flat</a>
+      <a href="/#gallery">Photos</a>
+      <a href="/#calendar">Availability</a>
+      <a href="/#costs">Costs</a>
+      <a href="/things-to-do.html">Things to do</a>
+    </nav>
+    <div class="nav-account" id="nav-account"></div>
+  </div>
+</header>
+
+<div class="todo-page-hero">
+  <div class="container">
+    <h1>Things to do nearby</h1>
+    <p style="color:#D9E4E8;max-width:60ch">There are loads of restaurants, bars and activities within about a 15-minute drive — here's a list to get you started, with directions to each.</p>
+    <nav class="todo-jump">
+      <a href="#restaurants">Restaurants</a>
+      <a href="#bars">Bars</a>
+      <a href="#activities">Activities</a>
+    </nav>
+  </div>
+</div>
+
+<div class="container" style="padding:56px 24px">
+  <div id="todo-content"></div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div>
+      <div class="brand" style="color:#fff"><span class="mark">M</span><span class="name">Mirador de Calahonda</span></div>
+      <p style="max-width:36ch;color:#AFC2C8">Calahonda, Costa del Sol — halfway between Malaga and Marbella.</p>
+    </div>
+    <nav class="foot-nav">
+      <a href="/#about">The flat</a>
+      <a href="/#calendar">Availability</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="/js/things-to-do-data.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  function itemHtml(item) {
+    const links = [];
+    if (item.site) links.push(`<a href="${item.site}" target="_blank" rel="noopener">Website</a>`);
+    if (item.map) links.push(`<a class="map-link" href="${item.map}" target="_blank" rel="noopener">Directions</a>`);
+    return `
+      <li class="todo-item">
+        <div class="who">
+          <strong>${item.name}</strong>
+          ${item.note ? `<span class="note">${item.note}</span>` : ''}
+        </div>
+        <div class="links">${links.join('')}</div>
+      </li>
+    `;
+  }
+
+  function sectionHtml(key, section) {
+    let html = `<section id="${key}" style="margin-bottom:56px">
+      <h2 class="todo-section-title">${section.title}</h2>
+      ${section.intro ? `<p>${section.intro}</p>` : ''}`;
+    section.groups.forEach((group) => {
+      html += `<div class="todo-group">`;
+      if (group.heading) html += `<h4>${group.heading}</h4>`;
+      html += `<ul class="todo-items">${group.items.map(itemHtml).join('')}</ul></div>`;
+    });
+    html += `</section>`;
+    return html;
+  }
+
+  const content = document.getElementById('todo-content');
+  content.innerHTML = Object.entries(THINGS_TO_DO).map(([key, section]) => sectionHtml(key, section)).join('');
+</script>
+</body>
+</html>

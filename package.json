@@ -1,0 +1,23 @@
+{
+  "name": "mirador-de-calahonda-booking",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Booking website for the Moirs' Spanish holiday flat, Mirador de Calahonda",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "migrate": "node scripts/migrate.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-async-errors": "^3.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "node-ical": "^0.18.0",
+    "pg": "^8.12.0"
+  }
+}
