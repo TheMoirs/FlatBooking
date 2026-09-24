@@ -22,7 +22,7 @@ function escapeHtml(value) {
     .replace(/'/g, '&#039;');
 }
 
-function renderMonthGrid(year, month, ranges, options = {}) {
+function renderMonthGrid(year, month, ranges = [], options = {}) {
   const today = new Date().toISOString().slice(0, 10);
   const first = new Date(year, month, 1);
   // Monday-first weekday index (0=Mon..6=Sun)
@@ -66,7 +66,7 @@ function renderMonthGrid(year, month, ranges, options = {}) {
 }
 
 // Renders `count` consecutive months starting at (year, startMonth) into `container`.
-function renderCalendarMonths(container, year, startMonth, count, ranges, options = {}) {
+function renderCalendarMonths(container, year, startMonth, count, ranges = [], options = {}) {
   container.innerHTML = '';
   for (let i = 0; i < count; i++) {
     const m = startMonth + i;

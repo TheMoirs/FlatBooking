@@ -175,7 +175,7 @@
     const errorEl = document.getElementById('cal-error');
     try {
       const data = await Api.availability(from, to);
-      calState.ranges = data.ranges;
+      calState.ranges = data.ranges || [];
       if (data.externalError) {
         errorEl.textContent = "Note: the linked calendar couldn't be read right now, so it may not be reflected below.";
         errorEl.style.display = 'block';
@@ -183,6 +183,7 @@
         errorEl.style.display = 'none';
       }
     } catch (e) {
+      calState.ranges = [];
       errorEl.textContent = "Couldn't load availability — please try again shortly.";
       errorEl.style.display = 'block';
     }

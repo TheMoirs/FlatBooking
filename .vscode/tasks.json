@@ -1,0 +1,35 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "probe shell",
+			"type": "shell",
+			"command": "node -p \"1+1\"",
+			"isBackground": false
+		},
+		{
+			"label": "db-check",
+			"type": "shell",
+			"command": "node -e \"require('dotenv').config(); const { Client } = require('pg'); const client = new Client({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false } }); client.connect().then(async()=>{ const res = await client.query(\\\"SELECT table_name, column_name FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('users','bookings','settings') ORDER BY table_name, ordinal_position\\\"); console.log(JSON.stringify(res.rows)); await client.end(); }).catch(err=>{ console.error(err.stack); process.exit(1); });\"",
+			"isBackground": false
+		},
+		{
+			"label": "db-check",
+			"type": "shell",
+			"command": "node - <<'NODE'\nrequire('dotenv').config();\nconst { Client } = require('pg');\nconst client = new Client({\n  connectionString: process.env.DATABASE_URL,\n  ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }\n});\nclient.connect()\n  .then(async () => {\n    const res = await client.query(\"SELECT table_name, column_name FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('users','bookings','settings') ORDER BY table_name, ordinal_position\");\n    console.log(JSON.stringify(res.rows));\n    await client.end();\n  })\n  .catch((err) => {\n    console.error(err.stack);\n    process.exit(1);\n  });\nNODE",
+			"isBackground": false
+		},
+		{
+			"label": "db-check",
+			"type": "shell",
+			"command": "node debug-check.js",
+			"isBackground": false
+		},
+		{
+			"label": "cleanup-debug",
+			"type": "shell",
+			"command": "del debug-check.js",
+			"isBackground": false
+		}
+	]
+}

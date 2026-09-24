@@ -19,15 +19,21 @@ const Api = {
   },
   async availability(fromISO, toISO) {
     const r = await fetch(`/api/availability?from=${fromISO}&to=${toISO}`, { credentials: 'include' });
-    return r.json();
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'Unable to load availability.');
+    return data;
   },
   async myBookings() {
     const r = await fetch('/api/bookings', { credentials: 'include' });
-    return r.json();
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'Unable to load bookings.');
+    return data;
   },
   async allBookings() {
     const r = await fetch('/api/bookings?all=1', { credentials: 'include' });
-    return r.json();
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'Unable to load bookings.');
+    return data;
   },
   async createBooking(payload) {
     return Api._send('/api/bookings', payload);
@@ -40,7 +46,9 @@ const Api = {
   },
   async adminSettings() {
     const r = await fetch('/api/admin/settings', { credentials: 'include' });
-    return r.json();
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'Unable to load settings.');
+    return data;
   },
   async saveAdminSettings(payload) {
     return Api._send('/api/admin/settings', payload, 'PUT');

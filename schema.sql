@@ -38,6 +38,7 @@ CREATE INDEX IF NOT EXISTS idx_bookings_dates ON bookings (start_date, end_date)
 CREATE TABLE IF NOT EXISTS settings (
   id                  INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   google_calendar_url TEXT,
+  google_calendar_id  TEXT,
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_by          INTEGER REFERENCES users(id)
 );
