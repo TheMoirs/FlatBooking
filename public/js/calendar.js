@@ -52,6 +52,8 @@ function renderMonthGrid(year, month, ranges = [], options = {}) {
           dateStr >= options.selectedStart && dateStr < options.selectedEnd) {
         classes.push('in-range');
       }
+      if (options.selectedStart && dateStr === options.selectedStart) classes.push('selected-start');
+      if (options.selectedEnd && dateStr === options.selectedEnd) classes.push('selected-end');
       html += `<div class="${classes.join(' ')}" data-date="${dateStr}" role="button" tabindex="0"><span class="date-number">${day}</span></div>`;
     } else if (occupied.length) {
       const hoverText = description ? description.replace(/\n/g, ' • ') : 'Booked';

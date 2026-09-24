@@ -30,6 +30,72 @@
 			"type": "shell",
 			"command": "del debug-check.js",
 			"isBackground": false
+		},
+		{
+			"label": "verify-admin-api",
+			"type": "shell",
+			"command": "node verify-admin.js",
+			"isBackground": false
+		},
+		{
+			"label": "start-server",
+			"type": "shell",
+			"command": "node server.js",
+			"isBackground": true
+		},
+		{
+			"label": "verify-admin-api",
+			"type": "shell",
+			"command": "node verify-admin.js",
+			"isBackground": false
+		},
+		{
+			"label": "verify-feed",
+			"type": "shell",
+			"command": "node verify-feed.js",
+			"isBackground": false
+		},
+		{
+			"label": "check-port-3000",
+			"type": "shell",
+			"command": "powershell -command \"Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Format-Table -AutoSize\"",
+			"isBackground": false
+		},
+		{
+			"label": "find-node-pid",
+			"type": "shell",
+			"command": "powershell -command \"Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique | ForEach-Object { $_; Get-Process -Id $_ | Select-Object Id,ProcessName,Path }\"",
+			"isBackground": false
+		},
+		{
+			"label": "find-port-pid",
+			"type": "shell",
+			"command": "netstat -ano | findstr :3000",
+			"isBackground": false
+		},
+		{
+			"label": "restart-server",
+			"type": "shell",
+			"command": "taskkill /PID 6840 /F && node server.js",
+			"isBackground": true
+		},
+		{
+			"label": "restart-server",
+			"type": "shell",
+			"command": "taskkill /PID 6840 /F; node server.js",
+			"isBackground": true
+		},
+		{
+			"label": "start-server",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\restart-server.ps1",
+			"isBackground": true
+		},
+		{
+			"label": "verify-port",
+			"type": "shell",
+			"command": "netstat -ano | findstr :3000",
+			"isBackground": false
 		}
 	]
 }

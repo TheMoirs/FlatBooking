@@ -1,13 +1,15 @@
 const express = require('express');
 const { query } = require('../db');
 const { attachUser, requireAdmin } = require('../auth');
-const { fetchExternalBusyRanges } = require('../calendarSync');
+const { fetchExternalBusyRanges, deriveGoogleCalendarIdFromUrl, checkGoogleCalendarWriteAccess } = require('../calendarSync');
 
 const router = express.Router();
 
 router.get('/settings', attachUser, requireAdmin, async (req, res) => {
-  const result = await query('SELECT google_calendar_url, updated_at FROM settings WHERE id = 1');
-  res.json({ settings: result.rows[0] || {} });
+  const result = await query('SELECT google_calendar_url, google_calendar_id, updated_at FROM settings WHERE id = 1');
+  const settings = result.rows[0] || {};
+  const calendarStatus = await checkGoogleCalendarWriteAccess();
+  res.json({ settings, calendar_status: calendarStatus });
 });
 
 router.put('/settings', attachUser, requireAdmin, async (req, res) => {
@@ -23,12 +25,14 @@ router.put('/settings', attachUser, requireAdmin, async (req, res) => {
     }
   }
 
+  const derivedCalendarId = deriveGoogleCalendarIdFromUrl(google_calendar_url);
   const result = await query(
-    `UPDATE settings SET google_calendar_url = $1, updated_at = now(), updated_by = $2
-     WHERE id = 1 RETURNING google_calendar_url, updated_at`,
-    [google_calendar_url || null, req.user.id]
+    `UPDATE settings SET google_calendar_url = $1, google_calendar_id = $2, updated_at = now(), updated_by = $3
+     WHERE id = 1 RETURNING google_calendar_url, google_calendar_id, updated_at`,
+    [google_calendar_url || null, derivedCalendarId || null, req.user.id]
   );
-  res.json({ settings: result.rows[0] });
+  const calendarStatus = await checkGoogleCalendarWriteAccess();
+  res.json({ settings: result.rows[0], calendar_status: calendarStatus });
 });
 
 module.exports = router;

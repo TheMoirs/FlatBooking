@@ -65,6 +65,10 @@
         <p id="selection-summary" style="font-weight:600"></p>
 
         <div class="field">
+          <label for="who-going">Who’s going?</label>
+          <input id="who-going" type="text" maxlength="120" placeholder="Ali & Dawn" />
+        </div>
+        <div class="field">
           <label for="arrival-time">Arrival time at flat</label>
           <input id="arrival-time" type="time" />
         </div>
@@ -245,8 +249,14 @@
     const okEl = document.getElementById('settings-ok');
     errEl.classList.remove('show'); okEl.classList.remove('show');
     try {
-      await Api.saveAdminSettings({ google_calendar_url: document.getElementById('gcal-url').value.trim() });
-      okEl.textContent = 'Saved.'; okEl.classList.add('show');
+      const result = await Api.saveAdminSettings({ google_calendar_url: document.getElementById('gcal-url').value.trim() });
+      const status = result && result.calendar_status;
+      if (status && status.ok) {
+        okEl.textContent = 'Calendar settings updated successfully. Google Calendar write-back is working.';
+      } else {
+        okEl.textContent = 'Calendar settings saved successfully. Google Calendar write-back is blocked — add the service account as an Editor on the shared calendar.';
+      }
+      okEl.classList.add('show');
     } catch (e) {
       errEl.textContent = e.message; errEl.classList.add('show');
     }
@@ -332,10 +342,15 @@
       const selectedMaster = document.querySelector('input[name="master-bedroom-config"]:checked')?.value || '';
       const selectedMiddle = document.querySelector('input[name="middle-bedroom-config"]:checked')?.value || '';
       const selectedFirst = document.querySelector('input[name="first-bedroom-config"]:checked')?.value || '';
+      const whoGoing = document.getElementById('who-going').value.trim();
+      if (!whoGoing) {
+        throw new Error('Who’s going? is required.');
+      }
 
-      await Api.createBooking({
+      const result = await Api.createBooking({
         start_date: bookingCal.start,
         end_date: bookingCal.end,
+        who_going: whoGoing,
         arrival_time: document.getElementById('arrival-time').value || null,
         departure_time: document.getElementById('leave-time').value || null,
         master_bedroom_config: selectedMaster,
@@ -343,9 +358,19 @@
         first_bedroom_config: selectedFirst,
         notes: document.getElementById('booking-notes').value.trim(),
       });
-      okEl.textContent = 'Booking requested — it will show as provisional until an admin authorises it.';
-      okEl.classList.add('show');
+      if (result && result.google_calendar_updated) {
+        okEl.textContent = 'Booking requested and the shared Google Calendar was updated successfully.';
+      } else if (result && result.google_calendar_warning) {
+        errEl.textContent = result.google_calendar_warning;
+        errEl.classList.add('show');
+      } else {
+        okEl.textContent = 'Booking requested — it will show as provisional until an admin authorises it.';
+      }
+      if (!(result && result.google_calendar_warning)) {
+        okEl.classList.add('show');
+      }
       bookingCal.start = null; bookingCal.end = null;
+      document.getElementById('who-going').value = '';
       document.getElementById('arrival-time').value = '';
       document.getElementById('leave-time').value = '';
       document.querySelectorAll('input[name="master-bedroom-config"]').forEach((el) => el.checked = false);

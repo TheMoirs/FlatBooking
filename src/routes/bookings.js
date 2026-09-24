@@ -56,16 +56,19 @@ router.get('/availability', async (req, res) => {
       const external = await fetchExternalBusyRanges(calendarUrl);
       for (const r of external) {
         if (r.start < to && r.end > from) {
-          const summary = (r.summary || 'External booking').replace(/^Confirmed\s*-\s*/i, '').trim();
+          const summary = (r.summary || 'External booking').trim();
+          const match = summary.match(/^(Confirmed|Provisional)\s*[-:]\s*(.*)$/i);
+          const status = match ? match[1].toLowerCase() : 'confirmed';
+          const cleanSummary = match ? match[2].trim() : summary;
           const description = formatExternalDescription({
-            summary,
-            status: 'confirmed',
+            summary: cleanSummary,
+            status,
             details: r.description,
           });
           ranges.push({
             start: r.start,
             end: r.end,
-            status: 'confirmed',
+            status,
             description,
             source: 'google-calendar',
           });
@@ -86,20 +89,55 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
     return res.status(403).json({ error: 'Admin access only.' });
   }
 
-  const result = wantsAll
-    ? await query(
-        `SELECT b.id, b.start_date, b.end_date, b.status, b.notes, b.created_at,
-                u.name AS guest_name, u.email AS guest_email, u.phone AS guest_phone
-         FROM bookings b JOIN users u ON u.id = b.user_id
-         ORDER BY b.start_date DESC`
-      )
-    : await query(
-        `SELECT id, start_date, end_date, status, notes, created_at
-         FROM bookings WHERE user_id = $1 ORDER BY start_date DESC`,
-        [req.user.id]
-      );
+  if (!wantsAll) {
+    const result = await query(
+      `SELECT id, start_date, end_date, status, notes, created_at
+       FROM bookings WHERE user_id = $1 ORDER BY start_date DESC`,
+      [req.user.id]
+    );
+    return res.json({ bookings: result.rows });
+  }
 
-  res.json({ bookings: result.rows });
+  const dbResult = await query(
+    `SELECT b.id, b.start_date, b.end_date, b.status, b.notes, b.created_at,
+            u.name AS guest_name, u.email AS guest_email, u.phone AS guest_phone,
+            b.calendar_description
+     FROM bookings b JOIN users u ON u.id = b.user_id
+     ORDER BY b.start_date DESC`
+  );
+
+  let externalRows = [];
+  const settingsResult = await query('SELECT google_calendar_url FROM settings WHERE id = 1');
+  const calendarUrl = settingsResult.rows[0] && settingsResult.rows[0].google_calendar_url;
+  if (calendarUrl) {
+    try {
+      const external = await fetchExternalBusyRanges(calendarUrl);
+      externalRows = external
+        .map((r) => {
+          const summary = (r.summary || 'External booking').trim();
+          const match = summary.match(/^(Confirmed|Provisional)\s*[-:]\s*(.*)$/i);
+          const status = match ? match[1].toLowerCase() : 'confirmed';
+          const guestName = match ? match[2].trim() : summary;
+          return {
+            id: `external:${r.start}:${r.end}:${summary}`,
+            start_date: r.start,
+            end_date: r.end,
+            status,
+            notes: r.description || '',
+            created_at: null,
+            guest_name: guestName,
+            guest_email: '',
+            guest_phone: '',
+            calendar_description: formatExternalDescription({ summary: guestName, status, details: r.description }),
+          };
+        })
+        .sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+    } catch (err) {
+      // Keep the DB bookings visible even if the external feed is temporarily unavailable.
+    }
+  }
+
+  res.json({ bookings: [...dbResult.rows, ...externalRows] });
 });
 
 // POST /api/bookings — logged-in guests propose a date range; starts as "provisional".
@@ -107,6 +145,7 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
   const {
     start_date,
     end_date,
+    who_going,
     notes,
     arrival_time,
     departure_time,
@@ -116,6 +155,9 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
   } = req.body || {};
   if (!start_date || !end_date) {
     return res.status(400).json({ error: 'Start and end dates are required.' });
+  }
+  if (!who_going || !String(who_going).trim()) {
+    return res.status(400).json({ error: 'Who’s going? is required.' });
   }
   if (start_date >= end_date) {
     return res.status(400).json({ error: 'The checkout date must be after the check-in date.' });
@@ -133,7 +175,10 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
     return res.status(409).json({ error: 'Those dates overlap with an existing booking. Please pick another range.' });
   }
 
+  const whoGoing = String(who_going).trim();
   const calendarDescription = buildCalendarDescription({
+    whoGoing,
+    status: 'provisional',
     notes,
     arrivalTime: arrival_time,
     departureTime: departure_time,
@@ -170,7 +215,7 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
     eventId: null,
     startDate: start_date,
     endDate: end_date,
-    guestName: guest.rows[0]?.name || 'Guest',
+    guestName: whoGoing || guest.rows[0]?.name || 'Guest',
     status: 'provisional',
     arrivalTime: arrival_time,
     departureTime: departure_time,
@@ -180,12 +225,17 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
     notes,
   });
 
+  const googleCalendarUpdated = Boolean(eventId);
   if (eventId) {
     await query('UPDATE bookings SET google_event_id = $1 WHERE id = $2', [eventId, booking.id]);
     booking.google_event_id = eventId;
   }
 
-  res.status(201).json({ booking });
+  res.status(201).json({
+    booking,
+    google_calendar_updated: googleCalendarUpdated,
+    google_calendar_warning: googleCalendarUpdated ? null : 'Booking saved, but Google Calendar update was blocked. Add the service account as an Editor on the shared calendar.',
+  });
 });
 
 // POST /api/bookings/:id/authorise — admin confirms a provisional booking.
@@ -264,6 +314,8 @@ function labelStatus(status) {
 }
 
 function buildCalendarDescription({
+  whoGoing,
+  status,
   notes,
   arrivalTime,
   departureTime,
@@ -272,6 +324,9 @@ function buildCalendarDescription({
   firstBedroomConfig,
 }) {
   const lines = [];
+  if (whoGoing && String(whoGoing).trim()) {
+    lines.push(`${labelStatus(status)} - ${String(whoGoing).trim()}`);
+  }
   if (arrivalTime) lines.push(`Arrival time at flat: ${arrivalTime}`);
   if (departureTime) lines.push(`Flat leave time: ${departureTime}`);
   if (masterBedroomConfig) lines.push(`Master bedroom: ${masterBedroomConfig}`);
@@ -294,7 +349,7 @@ function formatBookingDescription({
 }) {
   const direct = calendarDescription && String(calendarDescription).trim();
   if (direct) {
-    return `${labelStatus(status)} - ${guestName}\n${direct}`;
+    return direct;
   }
 
   const lines = [`${labelStatus(status)} - ${guestName}`];
