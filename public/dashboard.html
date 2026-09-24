@@ -59,10 +59,42 @@
           <span><span class="swatch booked"></span> Booked</span>
         </div>
       </div>
-      <div style="margin-top:20px;max-width:420px">
+      <div style="margin-top:20px;max-width:540px">
         <div class="form-error" id="booking-error"></div>
         <div class="form-ok" id="booking-ok"></div>
         <p id="selection-summary" style="font-weight:600"></p>
+
+        <div class="field">
+          <label for="arrival-time">Arrival time at flat</label>
+          <input id="arrival-time" type="time" />
+        </div>
+        <div class="field">
+          <label for="leave-time">Flat leave time</label>
+          <input id="leave-time" type="time" />
+        </div>
+
+        <div class="field">
+          <label>Master bedroom configuration</label>
+          <div class="radio-row">
+            <label><input type="radio" name="master-bedroom-config" value="Double" /> Double</label>
+            <label><input type="radio" name="master-bedroom-config" value="Twin Singles" /> Twin Singles</label>
+          </div>
+        </div>
+        <div class="field">
+          <label>Middle bedroom configuration</label>
+          <div class="radio-row">
+            <label><input type="radio" name="middle-bedroom-config" value="Double" /> Double</label>
+            <label><input type="radio" name="middle-bedroom-config" value="Twin Singles" /> Twin Singles</label>
+          </div>
+        </div>
+        <div class="field">
+          <label>1st bedroom configuration</label>
+          <div class="radio-row">
+            <label><input type="radio" name="first-bedroom-config" value="Double" /> Double</label>
+            <label><input type="radio" name="first-bedroom-config" value="Twin Singles" /> Twin Singles</label>
+          </div>
+        </div>
+
         <div class="field">
           <label for="booking-notes">Anything we should know? (optional)</label>
           <textarea id="booking-notes" rows="3"></textarea>
@@ -89,13 +121,17 @@
     <div class="dash-panel" id="panel-settings">
       <h2>Calendar settings</h2>
       <div class="admin-settings-card">
-        <p>Paste the linked Google Calendar feed so bookings made elsewhere also show as "booked" on the public calendar.</p>
+        <p>Paste the linked Google Calendar feed so bookings made elsewhere also show as "booked" on the public calendar, and choose the Google Calendar that new bookings should be written to.</p>
         <div class="field">
           <label for="gcal-url">Google Calendar iCal link (or any .ics URL)</label>
           <input id="gcal-url" type="url" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics" />
         </div>
+        <div class="field">
+          <label for="gcal-id">Google Calendar ID to update</label>
+          <input id="gcal-id" type="text" placeholder="primary or yourcalendar@group.calendar.google.com" />
+        </div>
         <div class="note-card" style="margin-bottom:16px;font-size:0.85rem">
-          In Google Calendar: Settings → your calendar → <em>Integrate calendar</em> → copy the "Secret address in iCal format" link.
+          Use the iCal feed for reading the public calendar and the Calendar ID for the calendar that booking events are created in. If you're using the default Google calendar, set the ID to <em>primary</em>.
         </div>
         <div class="form-error" id="settings-error"></div>
         <div class="form-ok" id="settings-ok"></div>
@@ -206,6 +242,7 @@
   async function loadSettings() {
     const { settings } = await Api.adminSettings();
     document.getElementById('gcal-url').value = (settings && settings.google_calendar_url) || '';
+    document.getElementById('gcal-id').value = (settings && settings.google_calendar_id) || '';
   }
 
   document.getElementById('save-settings-btn').addEventListener('click', async () => {
@@ -213,7 +250,10 @@
     const okEl = document.getElementById('settings-ok');
     errEl.classList.remove('show'); okEl.classList.remove('show');
     try {
-      await Api.saveAdminSettings({ google_calendar_url: document.getElementById('gcal-url').value.trim() });
+      await Api.saveAdminSettings({
+        google_calendar_url: document.getElementById('gcal-url').value.trim(),
+        google_calendar_id: document.getElementById('gcal-id').value.trim(),
+      });
       okEl.textContent = 'Saved.'; okEl.classList.add('show');
     } catch (e) {
       errEl.textContent = e.message; errEl.classList.add('show');
@@ -297,14 +337,28 @@
     const okEl = document.getElementById('booking-ok');
     errEl.classList.remove('show'); okEl.classList.remove('show');
     try {
+      const selectedMaster = document.querySelector('input[name="master-bedroom-config"]:checked')?.value || '';
+      const selectedMiddle = document.querySelector('input[name="middle-bedroom-config"]:checked')?.value || '';
+      const selectedFirst = document.querySelector('input[name="first-bedroom-config"]:checked')?.value || '';
+
       await Api.createBooking({
         start_date: bookingCal.start,
         end_date: bookingCal.end,
+        arrival_time: document.getElementById('arrival-time').value || null,
+        departure_time: document.getElementById('leave-time').value || null,
+        master_bedroom_config: selectedMaster,
+        middle_bedroom_config: selectedMiddle,
+        first_bedroom_config: selectedFirst,
         notes: document.getElementById('booking-notes').value.trim(),
       });
       okEl.textContent = 'Booking requested — it will show as provisional until an admin authorises it.';
       okEl.classList.add('show');
       bookingCal.start = null; bookingCal.end = null;
+      document.getElementById('arrival-time').value = '';
+      document.getElementById('leave-time').value = '';
+      document.querySelectorAll('input[name="master-bedroom-config"]').forEach((el) => el.checked = false);
+      document.querySelectorAll('input[name="middle-bedroom-config"]').forEach((el) => el.checked = false);
+      document.querySelectorAll('input[name="first-bedroom-config"]').forEach((el) => el.checked = false);
       document.getElementById('booking-notes').value = '';
       loadBookingCalendar();
     } catch (e) {

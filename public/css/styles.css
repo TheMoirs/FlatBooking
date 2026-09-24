@@ -328,18 +328,37 @@ section.tight { padding: 48px 0; }
 .cal-grid .day {
   aspect-ratio: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   border-radius: 6px;
-  font-size: 0.85rem;
+  font-size: 1rem;
   position: relative;
+  padding: 4px 2px;
+  overflow: hidden;
+}
+.cal-grid .day .date-number { line-height: 1; font-size: 1rem; }
+.cal-grid .day .date-note {
+  margin-top: 4px;
+  font-size: 0.62rem;
+  line-height: 1.1;
+  text-align: center;
+  word-break: break-word;
+  overflow: hidden;
+  max-width: 100%;
 }
 .cal-grid .day.blank { visibility: hidden; }
 .cal-grid .day.available { background: #EEF4EF; color: var(--sage); }
-.cal-grid .day.booked { background: var(--terracotta-dim); color: #7A3316; text-decoration: line-through; }
+.cal-grid .day.booked { background: var(--terracotta-dim); color: #7A3316; }
 .cal-grid .day.past { color: #C9C3B4; }
 .cal-grid .day.today { box-shadow: inset 0 0 0 2px var(--sun); font-weight: 700; }
-.cal-month-label { font-family: var(--serif); font-size: 1rem; margin-bottom: 10px; text-align: center; }
+.cal-grid .day.selected-start {
+  background: #F8E9B4;
+  color: #4A2F00;
+  box-shadow: inset 0 0 0 2px #D9A722;
+  font-weight: 700;
+}
+.cal-month-label { font-family: var(--serif); font-size: 1.15rem; margin-bottom: 10px; text-align: center; }
 
 .calendar-legend { display: flex; gap: 22px; margin-top: 20px; flex-wrap: wrap; font-size: 0.88rem; }
 .calendar-legend span { display: inline-flex; align-items: center; gap: 8px; }
@@ -480,6 +499,21 @@ section.tight { padding: 48px 0; }
   font-size: 0.95rem;
   background: var(--whitewash);
 }
+.radio-row {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 8px 2px 0;
+}
+.radio-row label {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500 !important;
+  margin: 0 !important;
+}
+.radio-row input { width: auto; }
 .modal-switch { font-size: 0.88rem; margin-top: 14px; text-align: center; }
 .form-error { background: #F6DED6; color: #7A3316; padding: 10px 14px; border-radius: 4px; font-size: 0.87rem; margin-bottom: 14px; display: none; }
 .form-error.show { display: block; }

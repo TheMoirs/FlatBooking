@@ -16,7 +16,7 @@ app.use(cookieParser());
 app.use(cors({ origin: true, credentials: true }));
 
 app.use('/api/auth', authRoutes);
-app.use('/api/bookings', bookingRoutes);
+app.use('/api', bookingRoutes);
 app.use('/api/admin', adminRoutes);
 
 app.use(express.static(path.join(__dirname, 'public')));

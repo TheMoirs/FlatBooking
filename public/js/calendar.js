@@ -13,6 +13,15 @@ function isDateBusy(dateStr, ranges) {
   return ranges.some((r) => dateStr >= r.start && dateStr < r.end);
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function renderMonthGrid(year, month, ranges, options = {}) {
   const today = new Date().toISOString().slice(0, 10);
   const first = new Date(year, month, 1);
@@ -28,21 +37,27 @@ function renderMonthGrid(year, month, ranges, options = {}) {
 
   for (let day = 1; day <= total; day++) {
     const dateStr = isoDate(year, month, day);
+    const occupied = ranges.filter((r) => dateStr >= r.start && dateStr < r.end);
+    const description = occupied[0] && occupied[0].description ? occupied[0].description : null;
     const classes = ['day'];
     if (dateStr < today) classes.push('past');
-    else if (isDateBusy(dateStr, ranges)) classes.push('booked');
+    else if (occupied.length) classes.push('booked');
     else classes.push('available');
     if (dateStr === today) classes.push('today');
+    if (options.selectedStart && dateStr === options.selectedStart) classes.push('selected-start');
 
-    if (options.selectable && dateStr >= today && !isDateBusy(dateStr, ranges)) {
+    if (options.selectable && dateStr >= today && !occupied.length) {
       classes.push('selectable');
       if (options.selectedStart && options.selectedEnd &&
           dateStr >= options.selectedStart && dateStr < options.selectedEnd) {
         classes.push('in-range');
       }
-      html += `<div class="${classes.join(' ')}" data-date="${dateStr}" role="button" tabindex="0">${day}</div>`;
+      html += `<div class="${classes.join(' ')}" data-date="${dateStr}" role="button" tabindex="0"><span class="date-number">${day}</span></div>`;
+    } else if (occupied.length) {
+      const hoverText = description ? description.replace(/\n/g, ' • ') : 'Booked';
+      html += `<div class="${classes.join(' ')}" title="${escapeHtml(hoverText)}"><span class="date-number">${day}</span><span class="date-note">${escapeHtml(description ? description.split('\n')[0] : 'Booked')}</span></div>`;
     } else {
-      html += `<div class="${classes.join(' ')}">${day}</div>`;
+      html += `<div class="${classes.join(' ')}"><span class="date-number">${day}</span></div>`;
     }
   }
 
