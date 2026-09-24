@@ -30,8 +30,8 @@ router.get('/availability', async (req, res) => {
   );
 
   const ranges = internal.rows.map((b) => ({
-    start: b.start_date.toISOString().slice(0, 10),
-    end: b.end_date.toISOString().slice(0, 10),
+    start: toDateOnlyValue(b.start_date),
+    end: toDateOnlyValue(b.end_date),
     status: b.status,
     description: formatBookingDescription({
       guestName: b.guest_name,
@@ -127,7 +127,7 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
     [start_date, end_date]
   );
   const clash = existing.rows.some((b) =>
-    overlaps(start_date, end_date, b.start_date.toISOString().slice(0, 10), b.end_date.toISOString().slice(0, 10))
+    overlaps(start_date, end_date, toDateOnlyValue(b.start_date), toDateOnlyValue(b.end_date))
   );
   if (clash) {
     return res.status(409).json({ error: 'Those dates overlap with an existing booking. Please pick another range.' });
@@ -249,6 +249,13 @@ function addMonths(dateStr, n) {
   const d = new Date(dateStr);
   d.setMonth(d.getMonth() + n);
   return d.toISOString().slice(0, 10);
+}
+
+function toDateOnlyValue(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === 'string') return value.slice(0, 10);
+  return new Date(value).toISOString().slice(0, 10);
 }
 
 function labelStatus(status) {

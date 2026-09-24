@@ -121,17 +121,13 @@
     <div class="dash-panel" id="panel-settings">
       <h2>Calendar settings</h2>
       <div class="admin-settings-card">
-        <p>Paste the linked Google Calendar feed so bookings made elsewhere also show as "booked" on the public calendar, and choose the Google Calendar that new bookings should be written to.</p>
+        <p>Paste the linked Google Calendar feed so bookings made elsewhere also show as "booked" on the public calendar. This same calendar is also the one that booking events are written to.</p>
         <div class="field">
           <label for="gcal-url">Google Calendar iCal link (or any .ics URL)</label>
           <input id="gcal-url" type="url" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics" />
         </div>
-        <div class="field">
-          <label for="gcal-id">Google Calendar ID to update</label>
-          <input id="gcal-id" type="text" placeholder="primary or yourcalendar@group.calendar.google.com" />
-        </div>
         <div class="note-card" style="margin-bottom:16px;font-size:0.85rem">
-          Use the iCal feed for reading the public calendar and the Calendar ID for the calendar that booking events are created in. If you're using the default Google calendar, set the ID to <em>primary</em>.
+          This is the same Google calendar used for both reading busy dates and writing booking events back. If you’re using your main calendar, leave it as <em>primary</em> in the environment or use the default calendar in Google.
         </div>
         <div class="form-error" id="settings-error"></div>
         <div class="form-ok" id="settings-ok"></div>
@@ -242,7 +238,6 @@
   async function loadSettings() {
     const { settings } = await Api.adminSettings();
     document.getElementById('gcal-url').value = (settings && settings.google_calendar_url) || '';
-    document.getElementById('gcal-id').value = (settings && settings.google_calendar_id) || '';
   }
 
   document.getElementById('save-settings-btn').addEventListener('click', async () => {
@@ -250,10 +245,7 @@
     const okEl = document.getElementById('settings-ok');
     errEl.classList.remove('show'); okEl.classList.remove('show');
     try {
-      await Api.saveAdminSettings({
-        google_calendar_url: document.getElementById('gcal-url').value.trim(),
-        google_calendar_id: document.getElementById('gcal-id').value.trim(),
-      });
+      await Api.saveAdminSettings({ google_calendar_url: document.getElementById('gcal-url').value.trim() });
       okEl.textContent = 'Saved.'; okEl.classList.add('show');
     } catch (e) {
       errEl.textContent = e.message; errEl.classList.add('show');

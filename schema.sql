@@ -34,15 +34,12 @@ CREATE TABLE IF NOT EXISTS bookings (
 
 CREATE INDEX IF NOT EXISTS idx_bookings_dates ON bookings (start_date, end_date) WHERE status <> 'cancelled';
 
--- Single-row settings table (admin-editable): the linked read-only feed and
--- the Google Calendar that booking events should be written to.
+-- Single-row settings table (admin-editable): the linked Google Calendar feed.
 CREATE TABLE IF NOT EXISTS settings (
   id                  INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   google_calendar_url TEXT,
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_by          INTEGER REFERENCES users(id)
 );
-
-ALTER TABLE settings ADD COLUMN IF NOT EXISTS google_calendar_id TEXT;
 
 INSERT INTO settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;

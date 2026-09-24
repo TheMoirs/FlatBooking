@@ -1,6 +1,5 @@
 const ical = require('node-ical');
 const { google } = require('googleapis');
-const { query } = require('./db');
 
 function buildGoogleCalendarDescription({ guestName, status, arrivalTime, departureTime, masterBedroomConfig, middleBedroomConfig, firstBedroomConfig, notes }) {
   const lines = [
@@ -41,26 +40,7 @@ function getGoogleCalendarCredentials() {
   return null;
 }
 
-async function getConfiguredCalendarId() {
-  try {
-    const result = await query('SELECT google_calendar_id FROM settings WHERE id = 1');
-    const savedCalendarId = result.rows[0] && result.rows[0].google_calendar_id;
-    if (savedCalendarId && String(savedCalendarId).trim()) {
-      return String(savedCalendarId).trim();
-    }
-  } catch (err) {
-    console.warn('Could not load the admin-selected Google calendar ID:', err.message);
-  }
-
-  const envCalendarId = process.env.GOOGLE_CALENDAR_ID;
-  if (envCalendarId && String(envCalendarId).trim()) {
-    return String(envCalendarId).trim();
-  }
-
-  return 'primary';
-}
-
-async function getGoogleCalendarClient() {
+function getGoogleCalendarClient() {
   const credentials = getGoogleCalendarCredentials();
   if (!credentials) return null;
 
@@ -73,7 +53,7 @@ async function getGoogleCalendarClient() {
   return {
     auth,
     calendar: google.calendar({ version: 'v3', auth }),
-    calendarId: await getConfiguredCalendarId(),
+    calendarId: process.env.GOOGLE_CALENDAR_ID || 'primary',
   };
 }
 
