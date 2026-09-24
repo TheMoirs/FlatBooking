@@ -44,6 +44,12 @@ function getGoogleCalendarClient() {
   const credentials = getGoogleCalendarCredentials();
   if (!credentials) return null;
 
+  const calendarId = process.env.GOOGLE_CALENDAR_ID;
+  if (!calendarId) {
+    console.warn('GOOGLE_CALENDAR_ID is not set for this app. Calendar write-backs are disabled until it is configured in the app settings.');
+    return null;
+  }
+
   const auth = new google.auth.JWT({
     email: credentials.client_email,
     key: credentials.private_key,
@@ -53,7 +59,7 @@ function getGoogleCalendarClient() {
   return {
     auth,
     calendar: google.calendar({ version: 'v3', auth }),
-    calendarId: process.env.GOOGLE_CALENDAR_ID || 'primary',
+    calendarId,
   };
 }
 
