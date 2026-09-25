@@ -200,13 +200,13 @@
   }
 
   document.getElementById('cal-prev').addEventListener('click', () => {
-    calState.anchorMonth -= 2;
-    if (calState.anchorMonth < 0) { calState.anchorMonth += 12; calState.anchorYear -= 1; }
+    calState.anchorMonth -= 1;
+    if (calState.anchorMonth < 0) { calState.anchorMonth = 11; calState.anchorYear -= 1; }
     drawCalendar();
   });
   document.getElementById('cal-next').addEventListener('click', () => {
-    calState.anchorMonth += 2;
-    if (calState.anchorMonth > 11) { calState.anchorMonth -= 12; calState.anchorYear += 1; }
+    calState.anchorMonth += 1;
+    if (calState.anchorMonth > 11) { calState.anchorMonth = 0; calState.anchorYear += 1; }
     drawCalendar();
   });
 
