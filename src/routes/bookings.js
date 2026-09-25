@@ -141,8 +141,16 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
         query(`SELECT start_date, end_date FROM bookings WHERE status <> 'cancelled'`),
       ]);
       const existingRanges = activeRanges.rows;
+      const importFailures = [];
 
       for (const r of external) {
+        // A same-day or zero/negative-length range (e.g. a timed, non-all-day
+        // calendar entry like a reminder, which collapses to one date once
+        // truncated to a date-only string) isn't a flat stay and would
+        // violate the bookings table's end_date > start_date check — skip it
+        // rather than let one odd calendar entry break the whole sync.
+        if (!(r.start < r.end)) continue;
+
         const alreadyInApp = existingRanges.some((b) => b.start_date === r.start && b.end_date === r.end);
         if (alreadyInApp) continue;
 
@@ -150,34 +158,44 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
         const googleEventId = deriveGoogleEventIdFromUid(r.uid);
         const calendarDescription = formatExternalDescription({ summary: guestName, status, details: r.description });
 
-        const inserted = await query(
-          `INSERT INTO bookings (
-             user_id, start_date, end_date, status, who_going, notes, calendar_description,
-             source, external_guest_name, google_event_id
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'google_calendar', $8, $9)
-           RETURNING id, start_date, end_date, status, who_going, notes, created_at, source`,
-          [req.user.id, r.start, r.end, status, guestName, r.description || null, calendarDescription, guestName, googleEventId]
-        );
+        try {
+          const inserted = await query(
+            `INSERT INTO bookings (
+               user_id, start_date, end_date, status, who_going, notes, calendar_description,
+               source, external_guest_name, google_event_id
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'google_calendar', $8, $9)
+             RETURNING id, start_date, end_date, status, who_going, notes, created_at, source`,
+            [req.user.id, r.start, r.end, status, guestName, r.description || null, calendarDescription, guestName, googleEventId]
+          );
 
-        // Keep the in-memory "already exists" list in sync in case the same
-        // event appears more than once in this pass (defensive).
-        existingRanges.push({ start_date: r.start, end_date: r.end });
+          // Keep the in-memory "already exists" list in sync in case the same
+          // event appears more than once in this pass (defensive).
+          existingRanges.push({ start_date: r.start, end_date: r.end });
 
-        if (includeOld || r.end >= today) {
-          const row = inserted.rows[0];
-          dbResult.rows.push({
-            ...row,
-            arrival_time: null,
-            departure_time: null,
-            master_bedroom_config: null,
-            middle_bedroom_config: null,
-            first_bedroom_config: null,
-            guest_name: guestName,
-            guest_email: '',
-            guest_phone: '',
-            calendar_description: calendarDescription,
-          });
+          if (includeOld || r.end >= today) {
+            const row = inserted.rows[0];
+            dbResult.rows.push({
+              ...row,
+              arrival_time: null,
+              departure_time: null,
+              master_bedroom_config: null,
+              middle_bedroom_config: null,
+              first_bedroom_config: null,
+              guest_name: guestName,
+              guest_email: '',
+              guest_phone: '',
+              calendar_description: calendarDescription,
+            });
+          }
+        } catch (err) {
+          // One malformed/unimportable calendar event shouldn't take down
+          // the rest of the sync or the whole "All bookings" list.
+          importFailures.push(`${guestName} (${r.start} → ${r.end}): ${err.message}`);
         }
+      }
+
+      if (importFailures.length) {
+        calendarSyncError = `${importFailures.length} calendar event(s) couldn't be imported — ${importFailures.join('; ')}`;
       }
     } catch (err) {
       // Keep the DB bookings visible even if the external feed is temporarily unavailable.
