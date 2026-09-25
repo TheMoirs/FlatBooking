@@ -20,7 +20,7 @@
 
 <div class="container" style="padding:48px 24px 80px">
   <h1 style="margin-bottom:8px">Agent Bookings</h1>
-  <p style="color:var(--ink-soft);margin-bottom:28px">Every booking, with room configurations and stay details — no charges.</p>
+  <p style="color:var(--ink-soft);margin-bottom:28px">Every booking, with room configurations and stay details.</p>
 
   <div class="form-error" id="agent-error"></div>
   <ul class="booking-list" id="agent-bookings-list"></ul>
@@ -52,13 +52,16 @@
     const opts = { day: 'numeric', month: 'short', year: 'numeric' };
     return `${s.toLocaleDateString('en-GB', opts)} → ${e.toLocaleDateString('en-GB', opts)} · ${fmtNights(nightsBetween(start, end))}`;
   }
+  // Each item on its own line rather than run together — easier to scan
+  // room-by-room. Returns pre-escaped HTML (join with <br>, not a plain
+  // string), since callers render it directly.
   function fmtRoomConfig(b) {
     const parts = [];
     if (b.master_bedroom_config) parts.push(`Master: ${b.master_bedroom_config}`);
     if (b.middle_bedroom_config) parts.push(`Middle: ${b.middle_bedroom_config}`);
     if (b.first_bedroom_config) parts.push(`1st: ${b.first_bedroom_config}`);
     if (b.sofa_bed_required) parts.push(`Sofa bed: ${b.sofa_bed_required}`);
-    return parts.join(' · ');
+    return parts.map((p) => escapeHtml(p)).join('<br>');
   }
 
   async function loadAgentBookings() {
@@ -86,8 +89,8 @@
       <li class="booking-row">
         <div>
           <div class="booking-dates">${fmtRange(b.start_date, b.end_date)}</div>
-          <div class="booking-meta">${b.who_going ? escapeHtml(b.who_going) + ' · ' : ''}${escapeHtml(b.guest_name || '')}${b.guest_email ? ' · ' + escapeHtml(b.guest_email) : ''}${b.guest_phone ? ' · ' + escapeHtml(b.guest_phone) : ''}</div>
-          <div class="booking-meta">${escapeHtml(fmtRoomConfig(b)) || 'No room configuration recorded'}</div>
+          ${b.who_going ? `<div class="booking-meta">${escapeHtml(b.who_going)}${b.guest_email ? ' · ' + escapeHtml(b.guest_email) : ''}</div>` : (b.guest_email ? `<div class="booking-meta">${escapeHtml(b.guest_email)}</div>` : '')}
+          <div class="booking-meta">${fmtRoomConfig(b) || 'No room configuration recorded'}</div>
           ${b.notes ? `<div class="booking-meta">Notes: ${escapeHtml(b.notes)}</div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:12px">
