@@ -23,6 +23,14 @@ const Api = {
     if (!r.ok) throw new Error(data.error || 'Unable to load availability.');
     return data;
   },
+  // Public — no login required, since it also feeds the Costs page on the
+  // homepage. Just the charges, not the rest of what admin settings holds.
+  async charges() {
+    const r = await fetch('/api/charges');
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'Unable to load charges.');
+    return data;
+  },
   async myBookings() {
     // Always show everything — there's no "show old bookings" toggle any more.
     const r = await fetch(`/api/bookings?includeOld=1`, { credentials: 'include' });

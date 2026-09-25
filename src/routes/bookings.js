@@ -18,6 +18,22 @@ function overlaps(aStart, aEnd, bStart, bEnd) {
   return aStart < bEnd && bStart < aEnd;
 }
 
+// GET /api/charges — public, no login required (it feeds the Costs page on
+// the homepage, and the nights/charge shown against bookings for any
+// logged-in user, not just admins). Just the charges — nothing else admin
+// settings holds, like the calendar feed URL.
+router.get('/charges', async (req, res) => {
+  const result = await query(
+    'SELECT daily_rate, cleaning_fee_1_room, cleaning_fee_2_rooms FROM settings WHERE id = 1'
+  );
+  const row = result.rows[0] || {};
+  res.json({
+    daily_rate: row.daily_rate,
+    cleaning_fee_1_room: row.cleaning_fee_1_room,
+    cleaning_fee_2_rooms: row.cleaning_fee_2_rooms,
+  });
+});
+
 // GET /api/availability?from=YYYY-MM-DD&to=YYYY-MM-DD
 // Public — no login required. Returns every busy range (our own bookings
 // that are provisional or confirmed, plus anything on the linked external

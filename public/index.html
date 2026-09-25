@@ -134,10 +134,8 @@
     </div>
     <table class="cost-table">
       <thead><tr><th>Charge</th><th>Amount</th><th>Covers</th></tr></thead>
-      <tbody>
-        <tr><td>Nightly rate</td><td>£15 (&euro;17) per night, for the whole flat</td><td>Insurance, electricity, broadband, water, community fees, rubbish removal, council tax, property tax &amp; property management</td></tr>
-        <tr><td>Cleaning &amp; laundry — 2+ bedrooms used</td><td>£108 (&euro;125), once per visit</td><td>End-of-stay clean and laundry</td></tr>
-        <tr><td>Cleaning &amp; laundry — 1 bedroom used</td><td>£82 (&euro;95), once per visit</td><td>End-of-stay clean and laundry</td></tr>
+      <tbody id="cost-table-body">
+        <tr><td colspan="3">Loading…</td></tr>
       </tbody>
     </table>
     <div class="note-card" style="margin-top:24px">
@@ -213,6 +211,33 @@
   document.getElementById('hero-book-btn').addEventListener('click', () => onBookNowClick());
   document.getElementById('cal-book-btn').addEventListener('click', () => onBookNowClick());
 
+  function fmtGBP(n) {
+    return `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  async function loadCosts() {
+    const body = document.getElementById('cost-table-body');
+    try {
+      const { daily_rate, cleaning_fee_1_room, cleaning_fee_2_rooms } = await Api.charges();
+      const rows = [
+        ['Nightly rate', daily_rate, 'per night, for the whole flat', 'Insurance, electricity, broadband, water, community fees, rubbish removal, council tax, property tax &amp; property management'],
+        ['Cleaning &amp; laundry — 1 room used', cleaning_fee_1_room, 'once per visit', 'End-of-stay clean and laundry'],
+        ['Cleaning &amp; laundry — 2+ rooms used', cleaning_fee_2_rooms, 'once per visit', 'End-of-stay clean and laundry'],
+      ];
+      body.innerHTML = rows
+        .map(([label, amount, per, covers]) => `
+          <tr>
+            <td>${label}</td>
+            <td>${amount != null ? `${fmtGBP(amount)}, ${per}` : 'To be confirmed'}</td>
+            <td>${covers}</td>
+          </tr>
+        `)
+        .join('');
+    } catch (e) {
+      body.innerHTML = '<tr><td colspan="3">Couldn\'t load current charges — please try again shortly.</td></tr>';
+    }
+  }
+
   initLightbox([
     { src: '/images/view-from-terrace.jpg', alt: 'View from the terrace over Calahonda to the sea' },
     { src: '/images/terrace-loungers.jpg', alt: 'Terrace with yellow sun loungers' },
@@ -230,6 +255,7 @@
   ]);
 
   loadAvailability();
+  loadCosts();
 </script>
 </body>
 </html>

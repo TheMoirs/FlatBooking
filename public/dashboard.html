@@ -150,6 +150,22 @@
         <div class="note-card" style="margin-bottom:16px;font-size:0.85rem">
           This is the same Google calendar used for both reading busy dates and writing booking events back. The app should use the calendar configured in its settings, not the default <em>primary</em> calendar.
         </div>
+
+        <h3 style="margin-top:28px">Charges</h3>
+        <p style="color:var(--ink-soft)">These are shown on the public Costs page, and used to work out the charge shown against each booking (nights × daily rate).</p>
+        <div class="field">
+          <label for="daily-rate">Daily rate (per night, whole flat) — £</label>
+          <input id="daily-rate" type="number" min="0" step="0.01" placeholder="e.g. 15" />
+        </div>
+        <div class="field">
+          <label for="cleaning-1-room">Cleaning &amp; laundry — 1 room used — £</label>
+          <input id="cleaning-1-room" type="number" min="0" step="0.01" placeholder="e.g. 82" />
+        </div>
+        <div class="field">
+          <label for="cleaning-2-rooms">Cleaning &amp; laundry — 2+ rooms used — £</label>
+          <input id="cleaning-2-rooms" type="number" min="0" step="0.01" placeholder="e.g. 108" />
+        </div>
+
         <div class="form-error" id="settings-error"></div>
         <div class="form-ok" id="settings-ok"></div>
         <button class="btn btn-primary" id="save-settings-btn">Save</button>
@@ -249,6 +265,18 @@
 <script src="/js/app.js"></script>
 <script>
   let bookingCal = { anchorYear: new Date().getFullYear(), anchorMonth: new Date().getMonth(), ranges: [], start: null, end: null };
+  // The per-night rate, fetched once at load (and again after an admin saves
+  // new charges) — everyone who's logged in can see it, not just admins, so
+  // it drives the nights/charge shown against their own bookings too.
+  let dailyRate = null;
+  async function loadDailyRate() {
+    try {
+      const { daily_rate } = await Api.charges();
+      dailyRate = (daily_rate === null || daily_rate === undefined) ? null : Number(daily_rate);
+    } catch (e) {
+      dailyRate = null;
+    }
+  }
 
   const TABS = {
     user: [
@@ -291,10 +319,30 @@
       ? '<span class="status-pill" style="background:var(--sand,#eee);color:var(--ink-soft)" title="Auto-added from the linked Google Calendar">From calendar</span>'
       : '';
   }
+  // end is the checkout day (exclusive), so the gap between the two dates
+  // is exactly the number of sleeps — no off-by-one to worry about.
+  function nightsBetween(start, end) {
+    const s = new Date(start + 'T00:00:00Z');
+    const e = new Date(end + 'T00:00:00Z');
+    return Math.round((e - s) / 86400000);
+  }
+  function fmtNights(n) {
+    return n === 1 ? '1 night' : `${n} nights`;
+  }
+  function fmtGBP(n) {
+    return `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
   function fmtRange(start, end) {
     const s = new Date(start), e = new Date(end);
     const opts = { day: 'numeric', month: 'short', year: 'numeric' };
-    return `${s.toLocaleDateString('en-GB', opts)} → ${e.toLocaleDateString('en-GB', opts)}`;
+    const nights = nightsBetween(start, end);
+    let text = `${s.toLocaleDateString('en-GB', opts)} → ${e.toLocaleDateString('en-GB', opts)} · ${fmtNights(nights)}`;
+    // Charge is nights × the daily rate only (cleaning fees aren't part of
+    // this figure) — omitted entirely if no rate has been set yet.
+    if (dailyRate !== null && !Number.isNaN(dailyRate)) {
+      text += ` · ${fmtGBP(nights * dailyRate)}`;
+    }
+    return text;
   }
 
   function isEditable(b) {
@@ -390,6 +438,9 @@
   async function loadSettings() {
     const { settings } = await Api.adminSettings();
     document.getElementById('gcal-url').value = (settings && settings.google_calendar_url) || '';
+    document.getElementById('daily-rate').value = (settings && settings.daily_rate != null) ? settings.daily_rate : '';
+    document.getElementById('cleaning-1-room').value = (settings && settings.cleaning_fee_1_room != null) ? settings.cleaning_fee_1_room : '';
+    document.getElementById('cleaning-2-rooms').value = (settings && settings.cleaning_fee_2_rooms != null) ? settings.cleaning_fee_2_rooms : '';
   }
 
   document.getElementById('save-settings-btn').addEventListener('click', async () => {
@@ -397,14 +448,22 @@
     const okEl = document.getElementById('settings-ok');
     errEl.classList.remove('show'); okEl.classList.remove('show');
     try {
-      const result = await Api.saveAdminSettings({ google_calendar_url: document.getElementById('gcal-url').value.trim() });
+      const result = await Api.saveAdminSettings({
+        google_calendar_url: document.getElementById('gcal-url').value.trim(),
+        daily_rate: document.getElementById('daily-rate').value.trim(),
+        cleaning_fee_1_room: document.getElementById('cleaning-1-room').value.trim(),
+        cleaning_fee_2_rooms: document.getElementById('cleaning-2-rooms').value.trim(),
+      });
       const status = result && result.calendar_status;
       if (status && status.ok) {
-        okEl.textContent = 'Calendar settings updated successfully. Google Calendar write-back is working.';
+        okEl.textContent = 'Settings updated successfully. Google Calendar write-back is working.';
       } else {
-        okEl.textContent = 'Calendar settings saved successfully. Google Calendar write-back is blocked — add the service account as an Editor on the shared calendar.';
+        okEl.textContent = 'Settings saved successfully. Google Calendar write-back is blocked — add the service account as an Editor on the shared calendar.';
       }
       okEl.classList.add('show');
+      // The daily rate feeds the nights/charge shown against every booking —
+      // refresh it so those figures are current without a full page reload.
+      await loadDailyRate();
     } catch (e) {
       errEl.textContent = e.message; errEl.classList.add('show');
     }
@@ -634,9 +693,9 @@
 
   document.getElementById('edit-modal-close').addEventListener('click', closeEditModal);
   document.getElementById('edit-cancel-btn').addEventListener('click', closeEditModal);
-  document.getElementById('edit-modal').addEventListener('click', (e) => {
-    if (e.target === document.getElementById('edit-modal')) closeEditModal();
-  });
+  // Deliberately no "click outside to close" here — an in-progress edit
+  // (dates picked, fields changed) was getting lost from an accidental
+  // click off the modal. It now only closes via the × or Cancel button.
 
   document.getElementById('edit-save-btn').addEventListener('click', async () => {
     const errEl = document.getElementById('edit-error');
@@ -704,6 +763,7 @@
       : 'Request a stay and track your bookings.';
     buildTabs(user.role);
     applyDatesFromQuery();
+    await loadDailyRate();
     await loadBookingCalendar();
     showTab('new-booking');
   })();

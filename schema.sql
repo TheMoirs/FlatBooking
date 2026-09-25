@@ -68,13 +68,24 @@ ALTER TABLE bookings ADD COLUMN IF NOT EXISTS sofa_bed_required TEXT CHECK (sofa
 
 CREATE INDEX IF NOT EXISTS idx_bookings_dates ON bookings (start_date, end_date) WHERE status <> 'cancelled';
 
--- Single-row settings table (admin-editable): the linked Google Calendar feed.
+-- Single-row settings table (admin-editable): the linked Google Calendar
+-- feed, plus the flat's charges (GBP) — shown on the public Costs page and
+-- used to work out the nights/charge shown against every booking.
 CREATE TABLE IF NOT EXISTS settings (
-  id                  INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  google_calendar_url TEXT,
-  google_calendar_id  TEXT,
-  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_by          INTEGER REFERENCES users(id)
+  id                    INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  google_calendar_url   TEXT,
+  google_calendar_id    TEXT,
+  daily_rate            NUMERIC(8,2),
+  cleaning_fee_1_room   NUMERIC(8,2),
+  cleaning_fee_2_rooms  NUMERIC(8,2),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by            INTEGER REFERENCES users(id)
 );
+
+-- Charges were added after the table already existed in some deployments —
+-- this backfills them in on existing databases; a no-op on a fresh install.
+ALTER TABLE settings ADD COLUMN IF NOT EXISTS daily_rate NUMERIC(8,2);
+ALTER TABLE settings ADD COLUMN IF NOT EXISTS cleaning_fee_1_room NUMERIC(8,2);
+ALTER TABLE settings ADD COLUMN IF NOT EXISTS cleaning_fee_2_rooms NUMERIC(8,2);
 
 INSERT INTO settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
