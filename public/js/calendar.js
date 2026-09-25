@@ -8,12 +8,9 @@ function isoDate(year, month, day) {
 }
 const DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-// ranges: [{start:'YYYY-MM-DD', end:'YYYY-MM-DD', status}]. `end` is the
-// checkout day, stored exclusive (end - start = nights stayed), but it's
-// treated as busy here too — no same-day turnover, so the checkout day
-// itself is blocked from a new booking.
+// ranges: [{start:'YYYY-MM-DD', end:'YYYY-MM-DD' (exclusive), status}]
 function isDateBusy(dateStr, ranges) {
-  return ranges.some((r) => dateStr >= r.start && dateStr <= r.end);
+  return ranges.some((r) => dateStr >= r.start && dateStr < r.end);
 }
 
 function escapeHtml(value) {
@@ -40,7 +37,7 @@ function renderMonthGrid(year, month, ranges = [], options = {}) {
 
   for (let day = 1; day <= total; day++) {
     const dateStr = isoDate(year, month, day);
-    const occupied = ranges.filter((r) => dateStr >= r.start && dateStr <= r.end);
+    const occupied = ranges.filter((r) => dateStr >= r.start && dateStr < r.end);
     const description = occupied[0] && occupied[0].description ? occupied[0].description : null;
     const classes = ['day'];
     if (dateStr < today) classes.push('past');

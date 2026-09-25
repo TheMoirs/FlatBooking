@@ -135,15 +135,18 @@ async function upsertGoogleCalendarEvent({
   const payload = {
     summary,
     description,
-    // endDate is the checkout day. Google's all-day events use an
-    // exclusive end date too, so this lines up directly: a 28th-30th
-    // booking (2 nights) shows as spanning the 28th and 29th, with the
-    // event itself ending on the 30th. The app treats the 30th as blocked
-    // from new bookings too (no same-day turnover) even though Google's own
-    // calendar view won't visually shade that day — that's inherent to how
-    // Google Calendar renders exclusive all-day event end dates.
+    // endDate is the checkout day, and the app itself leaves it free for
+    // same-day turnover (a different guest can arrive the same day someone
+    // else checks out). Google's all-day events use an exclusive end date
+    // too, so pushing endDate as-is would only visually shade up to the
+    // night before checkout. We push endDate + 1 instead so the Google
+    // Calendar view itself shades all the way through the checkout day —
+    // purely a display choice for the calendar; it doesn't change what the
+    // app treats as bookable. See deriveGoogleEventIdFromUid/the auto-import
+    // matching in routes/bookings.js, which matches re-imported events by
+    // their Google event id rather than by date for exactly this reason.
     start: { date: startDate },
-    end: { date: endDate },
+    end: { date: addDays(endDate, 1) },
     transparency: 'opaque',
   };
 
@@ -276,6 +279,17 @@ async function fetchExternalBusyRanges(calendarUrl) {
 // (see db.js). Local getters sidestep that entirely.
 function toDateOnly(d) {
   const date = new Date(d);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+// Adds `n` days to a 'YYYY-MM-DD' string, using local Y/M/D components
+// throughout (never toISOString — same reasoning as toDateOnly above) so it
+// can't drift a day either way across a DST boundary. JS's Date constructor
+// correctly rolls the month/year over on overflow (e.g. Sept 30 + 1 day
+// becomes Oct 1), so no manual carrying is needed.
+function addDays(dateStr, n) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d + n);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 

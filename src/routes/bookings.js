@@ -10,13 +10,12 @@ const {
 
 const router = express.Router();
 
-// end_date is the checkout day. It's stored the same way iCal/Google
-// Calendar store an all-day event's end (exclusive, so end - start = nights
-// stayed), but for blocking purposes the checkout day itself is treated as
-// unavailable too — no same-day turnover. Two bookings overlap whenever one
-// starts on or before the other's checkout day, on both sides.
+// end_date is the checkout day and is exclusive — someone can leave in the
+// morning and a different guest can arrive that same afternoon, so the
+// checkout day itself isn't treated as blocked. Two bookings overlap
+// whenever one starts before the other ends, on both sides.
 function overlaps(aStart, aEnd, bStart, bEnd) {
-  return aStart <= bEnd && bStart <= aEnd;
+  return aStart < bEnd && bStart < aEnd;
 }
 
 // GET /api/availability?from=YYYY-MM-DD&to=YYYY-MM-DD
@@ -33,7 +32,7 @@ router.get('/availability', async (req, res) => {
             b.middle_bedroom_config, b.first_bedroom_config, b.notes, b.calendar_description
      FROM bookings b
      JOIN users u ON u.id = b.user_id
-     WHERE b.status <> 'cancelled' AND b.start_date < $2 AND b.end_date >= $1
+     WHERE b.status <> 'cancelled' AND b.start_date < $2 AND b.end_date > $1
      ORDER BY b.start_date`,
     [from, to]
   );
@@ -139,7 +138,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
     try {
       const [external, activeRanges] = await Promise.all([
         fetchExternalBusyRanges(calendarUrl),
-        query(`SELECT start_date, end_date FROM bookings WHERE status <> 'cancelled'`),
+        query(`SELECT start_date, end_date, google_event_id FROM bookings WHERE status <> 'cancelled'`),
       ]);
       const existingRanges = activeRanges.rows;
       const importFailures = [];
@@ -156,11 +155,21 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
         // was never booked through the app isn't worth adding retroactively.
         if (r.end < today) continue;
 
-        const alreadyInApp = existingRanges.some((b) => b.start_date === r.start && b.end_date === r.end);
+        const googleEventId = deriveGoogleEventIdFromUid(r.uid);
+
+        // Bookings made through the app get pushed to Google with their
+        // checkout day +1 (so Google's own view shades all the way through
+        // checkout — see upsertGoogleCalendarEvent), so re-fetching that same
+        // event back from the calendar feed gives a end date one day later
+        // than what's stored here. Matching by google_event_id sidesteps
+        // that entirely; date-matching is only a fallback for events that
+        // were never pushed by us (created directly on the calendar).
+        const alreadyInApp = googleEventId
+          ? existingRanges.some((b) => b.google_event_id === googleEventId)
+          : existingRanges.some((b) => b.start_date === r.start && b.end_date === r.end);
         if (alreadyInApp) continue;
 
         const { status, guestName } = parseExternalSummary(r.summary);
-        const googleEventId = deriveGoogleEventIdFromUid(r.uid);
         const calendarDescription = formatExternalDescription({ summary: guestName, status, details: r.description });
 
         try {
@@ -175,7 +184,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
 
           // Keep the in-memory "already exists" list in sync in case the same
           // event appears more than once in this pass (defensive).
-          existingRanges.push({ start_date: r.start, end_date: r.end });
+          existingRanges.push({ start_date: r.start, end_date: r.end, google_event_id: googleEventId });
 
           const row = inserted.rows[0];
           dbResult.rows.push({
@@ -236,7 +245,7 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
 
   const existing = await query(
     `SELECT start_date, end_date FROM bookings WHERE status <> 'cancelled'
-     AND start_date <= $2 AND end_date >= $1`,
+     AND start_date < $2 AND end_date > $1`,
     [start_date, end_date]
   );
   const clash = existing.rows.some((b) =>
@@ -380,7 +389,7 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
 
   const others = await query(
     `SELECT start_date, end_date FROM bookings WHERE status <> 'cancelled' AND id <> $1
-     AND start_date <= $3 AND end_date >= $2`,
+     AND start_date < $3 AND end_date > $2`,
     [req.params.id, start_date, end_date]
   );
   const clash = others.rows.some((b) =>
