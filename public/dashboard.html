@@ -265,16 +265,26 @@
 <script src="/js/app.js"></script>
 <script>
   let bookingCal = { anchorYear: new Date().getFullYear(), anchorMonth: new Date().getMonth(), ranges: [], start: null, end: null };
-  // The per-night rate, fetched once at load (and again after an admin saves
-  // new charges) — everyone who's logged in can see it, not just admins, so
-  // it drives the nights/charge shown against their own bookings too.
+  // The charges, fetched once at load (and again after an admin saves new
+  // ones) — everyone who's logged in can see them, not just admins, so they
+  // drive the nights/cleaning/total charge shown against their own
+  // bookings too.
   let dailyRate = null;
-  async function loadDailyRate() {
+  let cleaningFee1Room = null;
+  let cleaningFee2Rooms = null;
+  function toChargeNumber(v) {
+    return (v === null || v === undefined) ? null : Number(v);
+  }
+  async function loadCharges() {
     try {
-      const { daily_rate } = await Api.charges();
-      dailyRate = (daily_rate === null || daily_rate === undefined) ? null : Number(daily_rate);
+      const { daily_rate, cleaning_fee_1_room, cleaning_fee_2_rooms } = await Api.charges();
+      dailyRate = toChargeNumber(daily_rate);
+      cleaningFee1Room = toChargeNumber(cleaning_fee_1_room);
+      cleaningFee2Rooms = toChargeNumber(cleaning_fee_2_rooms);
     } catch (e) {
       dailyRate = null;
+      cleaningFee1Room = null;
+      cleaningFee2Rooms = null;
     }
   }
 
@@ -332,16 +342,50 @@
   function fmtGBP(n) {
     return `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
-  function fmtRange(start, end) {
+  // The master bedroom has no "Not Required" option — it's always used.
+  // The middle/1st bedrooms count as used whenever they're set to
+  // something other than "Not Required" (including simply not answered
+  // yet, on the New booking form before a choice is made).
+  function bedroomsUsed({ middle, first }) {
+    let n = 1;
+    if (middle && middle !== 'Not Required') n += 1;
+    if (first && first !== 'Not Required') n += 1;
+    return n;
+  }
+  // Matches the "1 room" / "2+ rooms" tiers on the Costs page — null if
+  // neither rate has been set up in Admin yet.
+  function cleaningChargeFor(bedroomConfig) {
+    if (cleaningFee1Room === null && cleaningFee2Rooms === null) return null;
+    const fee = bedroomsUsed(bedroomConfig) >= 2 ? cleaningFee2Rooms : cleaningFee1Room;
+    return fee === null ? null : fee;
+  }
+  // bedroomConfig is optional — {master, middle, first} — and only needed
+  // to work out the cleaning charge; without it (or without rates set up
+  // yet) the line just stops after whichever figures are available.
+  function fmtRange(start, end, bedroomConfig) {
     const s = new Date(start), e = new Date(end);
     const opts = { day: 'numeric', month: 'short', year: 'numeric' };
     const nights = nightsBetween(start, end);
     let text = `${s.toLocaleDateString('en-GB', opts)} → ${e.toLocaleDateString('en-GB', opts)} · ${fmtNights(nights)}`;
-    // Charge is nights × the daily rate only (cleaning fees aren't part of
-    // this figure) — omitted entirely if no rate has been set yet.
+
+    let nightlyCharge = null;
     if (dailyRate !== null && !Number.isNaN(dailyRate)) {
-      text += ` · ${fmtGBP(nights * dailyRate)}`;
+      nightlyCharge = nights * dailyRate;
+      text += ` · ${fmtGBP(nightlyCharge)}`;
     }
+
+    let cleaning = null;
+    if (bedroomConfig) {
+      cleaning = cleaningChargeFor(bedroomConfig);
+      if (cleaning !== null) {
+        text += ` · Cleaning ${fmtGBP(cleaning)}`;
+      }
+    }
+
+    if (nightlyCharge !== null && cleaning !== null) {
+      text += ` · Total ${fmtGBP(nightlyCharge + cleaning)}`;
+    }
+
     return text;
   }
 
@@ -374,7 +418,7 @@
     list.innerHTML = bookings.map((b) => `
       <li class="booking-row">
         <div>
-          <div class="booking-dates">${fmtRange(b.start_date, b.end_date)}</div>
+          <div class="booking-dates">${fmtRange(b.start_date, b.end_date, { master: b.master_bedroom_config, middle: b.middle_bedroom_config, first: b.first_bedroom_config })}</div>
           <div class="booking-meta">${b.who_going ? b.who_going + ' · ' : ''}Requested ${b.created_at ? new Date(b.created_at).toLocaleDateString('en-GB') : '—'}${b.notes ? ' · ' + b.notes : ''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
@@ -412,7 +456,7 @@
     list.innerHTML = bookings.map((b) => `
       <li class="booking-row">
         <div>
-          <div class="booking-dates">${fmtRange(b.start_date, b.end_date)}</div>
+          <div class="booking-dates">${fmtRange(b.start_date, b.end_date, { master: b.master_bedroom_config, middle: b.middle_bedroom_config, first: b.first_bedroom_config })}</div>
           <div class="booking-meta">${b.who_going ? b.who_going + ' · ' : ''}${b.guest_name}${b.guest_email ? ' · ' + b.guest_email : ''}${b.guest_phone ? ' · ' + b.guest_phone : ''}${b.notes ? ' · ' + b.notes : ''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
@@ -461,9 +505,9 @@
         okEl.textContent = 'Settings saved successfully. Google Calendar write-back is blocked — add the service account as an Editor on the shared calendar.';
       }
       okEl.classList.add('show');
-      // The daily rate feeds the nights/charge shown against every booking —
-      // refresh it so those figures are current without a full page reload.
-      await loadDailyRate();
+      // The charges feed the nights/cleaning/total figures shown against
+      // every booking — refresh them without a full page reload.
+      await loadCharges();
     } catch (e) {
       errEl.textContent = e.message; errEl.classList.add('show');
     }
@@ -514,11 +558,21 @@
     drawBookingCalendar();
   }
 
+  // Reads the currently-checked radios for a bedroom-config field set —
+  // prefix is '' for New booking, 'edit-' for the edit modal.
+  function currentBedroomConfig(prefix) {
+    return {
+      master: document.querySelector(`input[name="${prefix}master-bedroom-config"]:checked`)?.value || '',
+      middle: document.querySelector(`input[name="${prefix}middle-bedroom-config"]:checked`)?.value || '',
+      first: document.querySelector(`input[name="${prefix}first-bedroom-config"]:checked`)?.value || '',
+    };
+  }
+
   function updateSelectionSummary() {
     const summary = document.getElementById('selection-summary');
     const submitBtn = document.getElementById('submit-booking-btn');
     if (bookingCal.start && bookingCal.end) {
-      summary.textContent = `${fmtRange(bookingCal.start, bookingCal.end)}`;
+      summary.textContent = `${fmtRange(bookingCal.start, bookingCal.end, currentBedroomConfig(''))}`;
       submitBtn.disabled = false;
     } else if (bookingCal.start) {
       summary.textContent = `Check-in: ${bookingCal.start} — now pick a check-out date`;
@@ -528,6 +582,9 @@
       submitBtn.disabled = true;
     }
   }
+  ['master-bedroom-config', 'middle-bedroom-config', 'first-bedroom-config'].forEach((name) => {
+    document.querySelectorAll(`input[name="${name}"]`).forEach((el) => el.addEventListener('change', updateSelectionSummary));
+  });
 
   document.getElementById('booking-cal-prev').addEventListener('click', () => {
     bookingCal.anchorMonth -= 1;
@@ -657,7 +714,8 @@
     const label2 = new Date(editCal.anchorYear, editCal.anchorMonth + 1, 1);
     document.getElementById('edit-cal-label').textContent =
       `${label.toLocaleString('en-GB', { month: 'long', year: 'numeric' })} – ${label2.toLocaleString('en-GB', { month: 'long', year: 'numeric' })}`;
-    document.getElementById('edit-selection-summary').textContent = (editCal.start && editCal.end) ? fmtRange(editCal.start, editCal.end) : '';
+    document.getElementById('edit-selection-summary').textContent =
+      (editCal.start && editCal.end) ? fmtRange(editCal.start, editCal.end, currentBedroomConfig('edit-')) : '';
   }
 
   function onEditDaySelected(dateStr) {
@@ -689,6 +747,10 @@
     editCal.anchorMonth += 1;
     if (editCal.anchorMonth > 11) { editCal.anchorMonth = 0; editCal.anchorYear += 1; }
     drawEditCalendar();
+  });
+
+  ['edit-master-bedroom-config', 'edit-middle-bedroom-config', 'edit-first-bedroom-config'].forEach((name) => {
+    document.querySelectorAll(`input[name="${name}"]`).forEach((el) => el.addEventListener('change', drawEditCalendar));
   });
 
   document.getElementById('edit-modal-close').addEventListener('click', closeEditModal);
@@ -763,7 +825,7 @@
       : 'Request a stay and track your bookings.';
     buildTabs(user.role);
     applyDatesFromQuery();
-    await loadDailyRate();
+    await loadCharges();
     await loadBookingCalendar();
     showTab('new-booking');
   })();
