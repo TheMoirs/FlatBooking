@@ -95,7 +95,7 @@ function renderNav() {
   if (currentUser) {
     slot.innerHTML = `
       <span style="font-size:0.9rem;color:var(--ink-soft)">Hi, ${escapeHtml(currentUser.name.split(' ')[0])}</span>
-      <a class="btn btn-ghost btn-small" href="/dashboard.html">${currentUser.role === 'admin' ? 'Admin' : 'My bookings'}</a>
+      <a class="btn btn-ghost btn-small" href="${currentUser.role === 'admin' ? '/dashboard.html' : '/dashboard.html?tab=my-bookings'}">${currentUser.role === 'admin' ? 'Admin' : 'My bookings'}</a>
       <button class="btn btn-secondary btn-small" id="logout-btn">Log out</button>
     `;
     document.getElementById('logout-btn').addEventListener('click', async () => {
@@ -118,7 +118,10 @@ function onBookNowClick(intent) {
     window.location.href = '/dashboard.html' + (intent ? `?dates=${intent.start},${intent.end}` : '');
   } else {
     postAuthRedirect = intent ? `/dashboard.html?dates=${intent.start},${intent.end}` : '/dashboard.html';
-    openAuthModal('register');
+    // Defaults to the login form — most people clicking "Book Now" already
+    // have an account. The form itself has a "Create an account" link for
+    // anyone who doesn't.
+    openAuthModal('login');
   }
 }
 

@@ -17,6 +17,8 @@
     <nav class="main-nav">
       <a href="/#about">The flat</a>
       <a href="/#gallery">Photos</a>
+      <a href="/#calendar">Availability</a>
+      <a href="/#costs">Costs</a>
       <a href="/things-to-do.html">Things to do</a>
     </nav>
     <div class="nav-account" id="nav-account"></div>
@@ -297,7 +299,7 @@
       { id: 'new-booking', label: 'New booking' },
       { id: 'my-bookings', label: 'My bookings' },
       { id: 'all-bookings', label: 'All bookings' },
-      { id: 'settings', label: 'Calendar settings' },
+      { id: 'settings', label: 'Settings' },
     ],
   };
 
@@ -827,7 +829,9 @@
     applyDatesFromQuery();
     await loadCharges();
     await loadBookingCalendar();
-    showTab('new-booking');
+    const requestedTab = new URLSearchParams(window.location.search).get('tab');
+    const availableTabs = (TABS[user.role] || TABS.user).map((t) => t.id);
+    showTab(availableTabs.includes(requestedTab) ? requestedTab : 'new-booking');
   })();
 </script>
 </body>
