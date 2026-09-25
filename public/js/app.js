@@ -23,8 +23,9 @@ const Api = {
     if (!r.ok) throw new Error(data.error || 'Unable to load availability.');
     return data;
   },
-  async myBookings(includeOld) {
-    const r = await fetch(`/api/bookings${includeOld ? '?includeOld=1' : ''}`, { credentials: 'include' });
+  async myBookings() {
+    // Always show everything — there's no "show old bookings" toggle any more.
+    const r = await fetch(`/api/bookings?includeOld=1`, { credentials: 'include' });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || 'Unable to load bookings.');
     return data;

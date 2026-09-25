@@ -354,9 +354,9 @@ section.tight { padding: 48px 0; }
 .cal-grid .day.today { box-shadow: inset 0 0 0 2px var(--sun); font-weight: 700; }
 .cal-grid .day.selected-start,
 .cal-grid .day.selected-end {
-  background: #F8E9B4;
-  color: #4A2F00;
-  box-shadow: inset 0 0 0 2px #D9A722;
+  background: var(--terracotta-dim);
+  color: #7A3316;
+  box-shadow: inset 0 0 0 2px var(--terracotta);
   font-weight: 700;
 }
 .cal-month-label { font-family: var(--serif); font-size: 1.15rem; margin-bottom: 10px; text-align: center; }
@@ -370,7 +370,7 @@ section.tight { padding: 48px 0; }
 /* selectable mode (booking) */
 .cal-grid .day.selectable { cursor: pointer; }
 .cal-grid .day.selectable:hover { box-shadow: inset 0 0 0 2px var(--sea); }
-.cal-grid .day.in-range { background: var(--sun); color: var(--sea-deep); font-weight: 700; }
+.cal-grid .day.in-range { background: var(--terracotta-dim); color: #7A3316; font-weight: 700; }
 
 /* ---------------- Costs ---------------- */
 

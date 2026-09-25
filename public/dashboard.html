@@ -53,7 +53,7 @@
             <button id="booking-cal-next" aria-label="Next months">&#8250;</button>
           </div>
         </div>
-        <div class="calendar-months" id="booking-cal-months" style="grid-template-columns:1fr"></div>
+        <div class="calendar-months" id="booking-cal-months"></div>
         <div class="calendar-legend">
           <span><span class="swatch available"></span> Available</span>
           <span><span class="swatch booked"></span> Booked</span>
@@ -121,7 +121,6 @@
     <!-- My bookings -->
     <div class="dash-panel" id="panel-my-bookings">
       <h2>My bookings</h2>
-      <label class="checkbox-row"><input type="checkbox" id="my-bookings-show-old" /> Show old bookings</label>
       <ul class="booking-list" id="my-bookings-list"></ul>
     </div>
 
@@ -253,7 +252,7 @@
     document.querySelectorAll('.dash-tab').forEach((t) => t.classList.remove('active'));
     document.getElementById('panel-' + id).classList.add('active');
     document.querySelector(`.dash-tab[data-tab="${id}"]`).classList.add('active');
-    if (id === 'my-bookings') loadMyBookings(document.getElementById('my-bookings-show-old').checked);
+    if (id === 'my-bookings') loadMyBookings();
     if (id === 'all-bookings') loadAllBookings();
     if (id === 'settings') loadSettings();
   }
@@ -297,12 +296,12 @@
     reloadFn();
   }
 
-  async function loadMyBookings(includeOld) {
+  async function loadMyBookings() {
     const list = document.getElementById('my-bookings-list');
     list.innerHTML = '<li class="empty-state">Loading…</li>';
     let bookings;
     try {
-      ({ bookings } = await Api.myBookings(includeOld));
+      ({ bookings } = await Api.myBookings());
     } catch (e) {
       list.innerHTML = `<li class="empty-state">Couldn't load bookings: ${e.message}</li>`;
       return;
@@ -323,10 +322,10 @@
       </li>
     `).join('');
     list.querySelectorAll('.edit-btn').forEach((btn) => {
-      btn.addEventListener('click', () => openEditModal(bookings.find((b) => String(b.id) === btn.dataset.id), () => loadMyBookings(document.getElementById('my-bookings-show-old').checked)));
+      btn.addEventListener('click', () => openEditModal(bookings.find((b) => String(b.id) === btn.dataset.id), () => loadMyBookings()));
     });
     list.querySelectorAll('.cancel-btn').forEach((btn) => {
-      btn.addEventListener('click', () => confirmAndCancel(btn.dataset.id, () => loadMyBookings(document.getElementById('my-bookings-show-old').checked)));
+      btn.addEventListener('click', () => confirmAndCancel(btn.dataset.id, () => loadMyBookings()));
     });
   }
 
@@ -377,8 +376,6 @@
     document.getElementById('gcal-url').value = (settings && settings.google_calendar_url) || '';
   }
 
-  document.getElementById('my-bookings-show-old').addEventListener('change', (e) => loadMyBookings(e.target.checked));
-
   document.getElementById('save-settings-btn').addEventListener('click', async () => {
     const errEl = document.getElementById('settings-error');
     const okEl = document.getElementById('settings-ok');
@@ -409,14 +406,16 @@
 
   function drawBookingCalendar() {
     const container = document.getElementById('booking-cal-months');
-    renderCalendarMonths(container, bookingCal.anchorYear, bookingCal.anchorMonth, 1, bookingCal.ranges, {
+    renderCalendarMonths(container, bookingCal.anchorYear, bookingCal.anchorMonth, 2, bookingCal.ranges, {
       selectable: true,
       selectedStart: bookingCal.start,
       selectedEnd: bookingCal.end,
       onSelect: onDaySelected,
     });
     const label = new Date(bookingCal.anchorYear, bookingCal.anchorMonth, 1);
-    document.getElementById('booking-cal-label').textContent = label.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+    const label2 = new Date(bookingCal.anchorYear, bookingCal.anchorMonth + 1, 1);
+    document.getElementById('booking-cal-label').textContent =
+      `${label.toLocaleString('en-GB', { month: 'long', year: 'numeric' })} – ${label2.toLocaleString('en-GB', { month: 'long', year: 'numeric' })}`;
     updateSelectionSummary();
   }
 
