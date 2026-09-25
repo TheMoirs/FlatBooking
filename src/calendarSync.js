@@ -137,8 +137,11 @@ async function upsertGoogleCalendarEvent({
     description,
     // endDate is the checkout day. Google's all-day events use an
     // exclusive end date too, so this lines up directly: a 28th-30th
-    // booking (2 nights) shows as spanning the 28th and 29th, checkout on
-    // the 30th, and that day stays free for another guest to arrive.
+    // booking (2 nights) shows as spanning the 28th and 29th, with the
+    // event itself ending on the 30th. The app treats the 30th as blocked
+    // from new bookings too (no same-day turnover) even though Google's own
+    // calendar view won't visually shade that day — that's inherent to how
+    // Google Calendar renders exclusive all-day event end dates.
     start: { date: startDate },
     end: { date: endDate },
     transparency: 'opaque',

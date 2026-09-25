@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   id                        SERIAL PRIMARY KEY,
   user_id                   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   start_date                DATE NOT NULL,
-  end_date                  DATE NOT NULL, -- exclusive, i.e. the checkout day (matches iCal DTEND convention)
+  end_date                  DATE NOT NULL, -- the checkout day (stored exclusive, matching iCal DTEND, so end - start = nights stayed); treated as blocked for new bookings too — no same-day turnover
   status                    TEXT NOT NULL DEFAULT 'provisional' CHECK (status IN ('provisional', 'confirmed', 'cancelled')),
   who_going                 TEXT,
   arrival_time              TEXT,

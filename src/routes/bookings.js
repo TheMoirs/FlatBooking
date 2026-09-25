@@ -10,12 +10,13 @@ const {
 
 const router = express.Router();
 
-// end_date is the checkout day and is exclusive — someone can leave in the
-// morning and a different guest can arrive that same afternoon, so the
-// checkout day itself isn't treated as blocked. Two bookings overlap
-// whenever one starts before the other ends, on both sides.
+// end_date is the checkout day. It's stored the same way iCal/Google
+// Calendar store an all-day event's end (exclusive, so end - start = nights
+// stayed), but for blocking purposes the checkout day itself is treated as
+// unavailable too — no same-day turnover. Two bookings overlap whenever one
+// starts on or before the other's checkout day, on both sides.
 function overlaps(aStart, aEnd, bStart, bEnd) {
-  return aStart < bEnd && bStart < aEnd;
+  return aStart <= bEnd && bStart <= aEnd;
 }
 
 // GET /api/availability?from=YYYY-MM-DD&to=YYYY-MM-DD
@@ -32,7 +33,7 @@ router.get('/availability', async (req, res) => {
             b.middle_bedroom_config, b.first_bedroom_config, b.notes, b.calendar_description
      FROM bookings b
      JOIN users u ON u.id = b.user_id
-     WHERE b.status <> 'cancelled' AND b.start_date < $2 AND b.end_date > $1
+     WHERE b.status <> 'cancelled' AND b.start_date < $2 AND b.end_date >= $1
      ORDER BY b.start_date`,
     [from, to]
   );
@@ -235,7 +236,7 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
 
   const existing = await query(
     `SELECT start_date, end_date FROM bookings WHERE status <> 'cancelled'
-     AND start_date < $2 AND end_date > $1`,
+     AND start_date <= $2 AND end_date >= $1`,
     [start_date, end_date]
   );
   const clash = existing.rows.some((b) =>
@@ -379,7 +380,7 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
 
   const others = await query(
     `SELECT start_date, end_date FROM bookings WHERE status <> 'cancelled' AND id <> $1
-     AND start_date < $3 AND end_date > $2`,
+     AND start_date <= $3 AND end_date >= $2`,
     [req.params.id, start_date, end_date]
   );
   const clash = others.rows.some((b) =>
