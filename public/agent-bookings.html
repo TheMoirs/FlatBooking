@@ -89,7 +89,7 @@
       <li class="booking-row">
         <div>
           <div class="booking-dates">${fmtRange(b.start_date, b.end_date)}</div>
-          ${b.who_going ? `<div class="booking-meta">${escapeHtml(b.who_going)}${b.guest_email ? ' · ' + escapeHtml(b.guest_email) : ''}</div>` : (b.guest_email ? `<div class="booking-meta">${escapeHtml(b.guest_email)}</div>` : '')}
+          ${b.who_going ? `<div class="booking-meta">${escapeHtml(b.who_going)}</div>` : ''}
           <div class="booking-meta">${fmtRoomConfig(b) || 'No room configuration recorded'}</div>
           ${b.notes ? `<div class="booking-meta">Notes: ${escapeHtml(b.notes)}</div>` : ''}
         </div>
