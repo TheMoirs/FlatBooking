@@ -88,10 +88,13 @@ router.get('/availability', async (req, res) => {
   res.json({ ranges, externalCalendarConnected: Boolean(calendarUrl), externalError });
 });
 
-// GET /api/bookings — the current user's own bookings, or (with ?all=1 and admin role) everyone's.
-// By default only bookings that are still current or in the future are
-// returned (end_date today or later); pass ?includeOld=1 to also get past
-// ones — this backs the "Show old bookings" checkbox in the dashboard.
+// GET /api/bookings — the current user's own bookings, or (with ?all=1 and
+// admin role) everyone's. For the user's own bookings, by default only ones
+// that are still current or in the future are returned (end_date today or
+// later); pass ?includeOld=1 to also get past ones — this backs the "Show
+// old bookings" checkbox in the dashboard's "My bookings" tab. "All
+// bookings" (the admin tab) has no such filter — it always returns the
+// complete history, oldest first.
 router.get('/bookings', attachUser, requireAuth, async (req, res) => {
   const wantsAll = req.query.all === '1';
   const includeOld = req.query.includeOld === '1';
@@ -112,6 +115,8 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
     return res.json({ bookings: result.rows });
   }
 
+  // "All bookings" is always the complete record — past, current and future
+  // — with no filter toggle, so admins have one place that shows everything.
   const dbResult = await query(
     `SELECT b.id, b.start_date, b.end_date, b.status, b.who_going, b.notes, b.created_at, b.source,
             b.arrival_time, b.departure_time,
@@ -119,18 +124,13 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
             u.name AS guest_name, u.email AS guest_email, u.phone AS guest_phone,
             b.calendar_description
      FROM bookings b JOIN users u ON u.id = b.user_id
-     WHERE ($1::boolean OR b.end_date >= $2)
-     ORDER BY b.start_date DESC`,
-    [includeOld, today]
+     ORDER BY b.start_date ASC`
   );
 
   // Auto-import: any event on the linked Google Calendar that doesn't
   // already correspond to a non-cancelled booking in the app becomes one,
   // so "All bookings" is a complete picture without an admin having to
-  // re-enter things that were booked directly on the calendar. Existence is
-  // checked against ALL active bookings (not just the ones this response is
-  // about to show), so an old imported booking doesn't get re-imported every
-  // time "Show old bookings" is unchecked.
+  // re-enter things that were booked directly on the calendar.
   let calendarSyncError = null;
   const settingsResult = await query('SELECT google_calendar_url FROM settings WHERE id = 1');
   const calendarUrl = settingsResult.rows[0] && settingsResult.rows[0].google_calendar_url;
@@ -172,21 +172,19 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
           // event appears more than once in this pass (defensive).
           existingRanges.push({ start_date: r.start, end_date: r.end });
 
-          if (includeOld || r.end >= today) {
-            const row = inserted.rows[0];
-            dbResult.rows.push({
-              ...row,
-              arrival_time: null,
-              departure_time: null,
-              master_bedroom_config: null,
-              middle_bedroom_config: null,
-              first_bedroom_config: null,
-              guest_name: guestName,
-              guest_email: '',
-              guest_phone: '',
-              calendar_description: calendarDescription,
-            });
-          }
+          const row = inserted.rows[0];
+          dbResult.rows.push({
+            ...row,
+            arrival_time: null,
+            departure_time: null,
+            master_bedroom_config: null,
+            middle_bedroom_config: null,
+            first_bedroom_config: null,
+            guest_name: guestName,
+            guest_email: '',
+            guest_phone: '',
+            calendar_description: calendarDescription,
+          });
         } catch (err) {
           // One malformed/unimportable calendar event shouldn't take down
           // the rest of the sync or the whole "All bookings" list.
@@ -203,7 +201,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
     }
   }
 
-  dbResult.rows.sort((a, b) => (a.start_date < b.start_date ? 1 : a.start_date > b.start_date ? -1 : 0));
+  dbResult.rows.sort((a, b) => (a.start_date < b.start_date ? -1 : a.start_date > b.start_date ? 1 : 0));
 
   res.json({ bookings: dbResult.rows, calendar_sync_error: calendarSyncError });
 });

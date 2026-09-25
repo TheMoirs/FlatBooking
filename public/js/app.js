@@ -29,8 +29,8 @@ const Api = {
     if (!r.ok) throw new Error(data.error || 'Unable to load bookings.');
     return data;
   },
-  async allBookings(includeOld) {
-    const r = await fetch(`/api/bookings?all=1${includeOld ? '&includeOld=1' : ''}`, { credentials: 'include' });
+  async allBookings() {
+    const r = await fetch('/api/bookings?all=1', { credentials: 'include' });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || 'Unable to load bookings.');
     return data;

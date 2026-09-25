@@ -262,9 +262,18 @@ async function fetchExternalBusyRanges(calendarUrl) {
   return ranges;
 }
 
+// node-ical builds an all-day ("VALUE=DATE") event's start/end as a Date
+// constructed from local Y/M/D components (it flags these `.dateOnly` and
+// its own internal getDateKey() helper deliberately reads them back with
+// local getters, never toISOString() — see node_modules/node-ical/lib/
+// date-utils.js). Using toISOString() here converts that local-midnight
+// instant to UTC, which silently shifts the date backwards by a day
+// whenever the server's local timezone is ahead of UTC (e.g. Europe/London
+// on BST) — the exact same class of bug that hit Postgres's date parsing
+// (see db.js). Local getters sidestep that entirely.
 function toDateOnly(d) {
   const date = new Date(d);
-  return date.toISOString().slice(0, 10);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 // Google-hosted calendars give VEVENTs a UID of the form "<eventId>@google.com".

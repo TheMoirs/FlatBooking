@@ -129,7 +129,6 @@
     <div class="dash-panel" id="panel-all-bookings">
       <h2>All bookings</h2>
       <p style="color:var(--ink-soft)">Authorise a provisional booking once you're happy to confirm it, or cancel one that shouldn't go ahead.</p>
-      <label class="checkbox-row"><input type="checkbox" id="all-bookings-show-old" /> Show old bookings</label>
       <ul class="booking-list" id="all-bookings-list"></ul>
     </div>
 
@@ -255,7 +254,7 @@
     document.getElementById('panel-' + id).classList.add('active');
     document.querySelector(`.dash-tab[data-tab="${id}"]`).classList.add('active');
     if (id === 'my-bookings') loadMyBookings(document.getElementById('my-bookings-show-old').checked);
-    if (id === 'all-bookings') loadAllBookings(document.getElementById('all-bookings-show-old').checked);
+    if (id === 'all-bookings') loadAllBookings();
     if (id === 'settings') loadSettings();
   }
 
@@ -331,12 +330,12 @@
     });
   }
 
-  async function loadAllBookings(includeOld) {
+  async function loadAllBookings() {
     const list = document.getElementById('all-bookings-list');
     list.innerHTML = '<li class="empty-state">Loading…</li>';
     let bookings, calendar_sync_error;
     try {
-      ({ bookings, calendar_sync_error } = await Api.allBookings(includeOld));
+      ({ bookings, calendar_sync_error } = await Api.allBookings());
     } catch (e) {
       list.innerHTML = `<li class="empty-state">Couldn't load bookings: ${e.message}</li>`;
       return;
@@ -363,13 +362,13 @@
       </li>
     `).join('');
     list.querySelectorAll('.authorise-btn').forEach((btn) => {
-      btn.addEventListener('click', async () => { await Api.authoriseBooking(btn.dataset.id); loadAllBookings(document.getElementById('all-bookings-show-old').checked); });
+      btn.addEventListener('click', async () => { await Api.authoriseBooking(btn.dataset.id); loadAllBookings(); });
     });
     list.querySelectorAll('.edit-btn').forEach((btn) => {
-      btn.addEventListener('click', () => openEditModal(bookings.find((b) => String(b.id) === btn.dataset.id), () => loadAllBookings(document.getElementById('all-bookings-show-old').checked)));
+      btn.addEventListener('click', () => openEditModal(bookings.find((b) => String(b.id) === btn.dataset.id), () => loadAllBookings()));
     });
     list.querySelectorAll('.cancel-btn').forEach((btn) => {
-      btn.addEventListener('click', () => confirmAndCancel(btn.dataset.id, () => loadAllBookings(document.getElementById('all-bookings-show-old').checked)));
+      btn.addEventListener('click', () => confirmAndCancel(btn.dataset.id, () => loadAllBookings()));
     });
   }
 
@@ -379,7 +378,6 @@
   }
 
   document.getElementById('my-bookings-show-old').addEventListener('change', (e) => loadMyBookings(e.target.checked));
-  document.getElementById('all-bookings-show-old').addEventListener('change', (e) => loadAllBookings(e.target.checked));
 
   document.getElementById('save-settings-btn').addEventListener('click', async () => {
     const errEl = document.getElementById('settings-error');
