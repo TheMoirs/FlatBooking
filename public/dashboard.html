@@ -168,7 +168,7 @@
           <button id="edit-cal-next" type="button" aria-label="Next months">&#8250;</button>
         </div>
       </div>
-      <div class="calendar-months" id="edit-cal-months" style="grid-template-columns:1fr"></div>
+      <div class="calendar-months" id="edit-cal-months"></div>
       <div class="calendar-legend">
         <span><span class="swatch available"></span> Available</span>
         <span><span class="swatch booked"></span> Booked</span>
@@ -564,14 +564,16 @@
 
   function drawEditCalendar() {
     const container = document.getElementById('edit-cal-months');
-    renderCalendarMonths(container, editCal.anchorYear, editCal.anchorMonth, 1, editCal.ranges, {
+    renderCalendarMonths(container, editCal.anchorYear, editCal.anchorMonth, 2, editCal.ranges, {
       selectable: true,
       selectedStart: editCal.start,
       selectedEnd: editCal.end,
       onSelect: onEditDaySelected,
     });
     const label = new Date(editCal.anchorYear, editCal.anchorMonth, 1);
-    document.getElementById('edit-cal-label').textContent = label.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+    const label2 = new Date(editCal.anchorYear, editCal.anchorMonth + 1, 1);
+    document.getElementById('edit-cal-label').textContent =
+      `${label.toLocaleString('en-GB', { month: 'long', year: 'numeric' })} – ${label2.toLocaleString('en-GB', { month: 'long', year: 'numeric' })}`;
     document.getElementById('edit-selection-summary').textContent = (editCal.start && editCal.end) ? fmtRange(editCal.start, editCal.end) : '';
   }
 

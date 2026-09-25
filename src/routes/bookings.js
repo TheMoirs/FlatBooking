@@ -27,7 +27,7 @@ router.get('/availability', async (req, res) => {
   const to = req.query.to || addMonths(from, 6);
 
   const internal = await query(
-    `SELECT b.id, b.start_date, b.end_date, b.status, u.name AS guest_name,
+    `SELECT b.id, b.start_date, b.end_date, b.status, b.google_event_id, u.name AS guest_name,
             b.arrival_time, b.departure_time, b.master_bedroom_config,
             b.middle_bedroom_config, b.first_bedroom_config, b.notes, b.calendar_description
      FROM bookings b
@@ -56,6 +56,19 @@ router.get('/availability', async (req, res) => {
     source: 'flat',
   }));
 
+  // Every booking — whether created in the app or auto-imported from the
+  // calendar — gets pushed to (or came from) the same shared Google
+  // Calendar, so it already shows up once above via the `internal` query.
+  // Without this, it would show up a *second* time below from the raw feed
+  // fetch, as an untagged duplicate range with no booking id — harmless for
+  // the read-only availability views, but it broke the edit-booking
+  // calendar, which excludes a booking's own dates by matching `source` +
+  // `id`; the untagged duplicate slipped past that filter and made a
+  // booking's own current dates look permanently "booked" in its own edit
+  // calendar. Skip re-adding any external event whose Google event id we
+  // already have internally.
+  const knownGoogleEventIds = new Set(internal.rows.map((b) => b.google_event_id).filter(Boolean));
+
   const settingsResult = await query('SELECT google_calendar_url FROM settings WHERE id = 1');
   const calendarUrl = settingsResult.rows[0] && settingsResult.rows[0].google_calendar_url;
 
@@ -64,6 +77,7 @@ router.get('/availability', async (req, res) => {
     try {
       const external = await fetchExternalBusyRanges(calendarUrl);
       for (const r of external) {
+        if (deriveGoogleEventIdFromUid(r.uid) && knownGoogleEventIds.has(deriveGoogleEventIdFromUid(r.uid))) continue;
         if (r.start < to && r.end > from) {
           const { status, guestName: cleanSummary } = parseExternalSummary(r.summary);
           const description = formatExternalDescription({
