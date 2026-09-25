@@ -1,7 +1,12 @@
 const express = require('express');
 const { query } = require('../db');
 const { attachUser, requireAuth, requireAdmin } = require('../auth');
-const { fetchExternalBusyRanges, upsertGoogleCalendarEvent, deleteGoogleCalendarEvent } = require('../calendarSync');
+const {
+  fetchExternalBusyRanges,
+  upsertGoogleCalendarEvent,
+  deleteGoogleCalendarEvent,
+  deriveGoogleEventIdFromUid,
+} = require('../calendarSync');
 
 const router = express.Router();
 
@@ -60,10 +65,7 @@ router.get('/availability', async (req, res) => {
       const external = await fetchExternalBusyRanges(calendarUrl);
       for (const r of external) {
         if (r.start < to && r.end > from) {
-          const summary = (r.summary || 'External booking').trim();
-          const match = summary.match(/^(Confirmed|Provisional)\s*[-:]\s*(.*)$/i);
-          const status = match ? match[1].toLowerCase() : 'confirmed';
-          const cleanSummary = match ? match[2].trim() : summary;
+          const { status, guestName: cleanSummary } = parseExternalSummary(r.summary);
           const description = formatExternalDescription({
             summary: cleanSummary,
             status,
@@ -100,7 +102,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
 
   if (!wantsAll) {
     const result = await query(
-      `SELECT id, start_date, end_date, status, who_going, notes, created_at,
+      `SELECT id, start_date, end_date, status, who_going, notes, created_at, source,
               arrival_time, departure_time,
               master_bedroom_config, middle_bedroom_config, first_bedroom_config
        FROM bookings WHERE user_id = $1 AND ($2::boolean OR end_date >= $3)
@@ -111,7 +113,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
   }
 
   const dbResult = await query(
-    `SELECT b.id, b.start_date, b.end_date, b.status, b.who_going, b.notes, b.created_at,
+    `SELECT b.id, b.start_date, b.end_date, b.status, b.who_going, b.notes, b.created_at, b.source,
             b.arrival_time, b.departure_time,
             b.master_bedroom_config, b.middle_bedroom_config, b.first_bedroom_config,
             u.name AS guest_name, u.email AS guest_email, u.phone AS guest_phone,
@@ -122,40 +124,70 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
     [includeOld, today]
   );
 
-  let externalRows = [];
+  // Auto-import: any event on the linked Google Calendar that doesn't
+  // already correspond to a non-cancelled booking in the app becomes one,
+  // so "All bookings" is a complete picture without an admin having to
+  // re-enter things that were booked directly on the calendar. Existence is
+  // checked against ALL active bookings (not just the ones this response is
+  // about to show), so an old imported booking doesn't get re-imported every
+  // time "Show old bookings" is unchecked.
+  let calendarSyncError = null;
   const settingsResult = await query('SELECT google_calendar_url FROM settings WHERE id = 1');
   const calendarUrl = settingsResult.rows[0] && settingsResult.rows[0].google_calendar_url;
   if (calendarUrl) {
     try {
-      const external = await fetchExternalBusyRanges(calendarUrl);
-      externalRows = external
-        .filter((r) => includeOld || r.end >= today)
-        .map((r) => {
-          const summary = (r.summary || 'External booking').trim();
-          const match = summary.match(/^(Confirmed|Provisional)\s*[-:]\s*(.*)$/i);
-          const status = match ? match[1].toLowerCase() : 'confirmed';
-          const guestName = match ? match[2].trim() : summary;
-          return {
-            id: `external:${r.start}:${r.end}:${summary}`,
-            start_date: r.start,
-            end_date: r.end,
-            status,
-            who_going: guestName,
-            notes: r.description || '',
-            created_at: null,
+      const [external, activeRanges] = await Promise.all([
+        fetchExternalBusyRanges(calendarUrl),
+        query(`SELECT start_date, end_date FROM bookings WHERE status <> 'cancelled'`),
+      ]);
+      const existingRanges = activeRanges.rows;
+
+      for (const r of external) {
+        const alreadyInApp = existingRanges.some((b) => b.start_date === r.start && b.end_date === r.end);
+        if (alreadyInApp) continue;
+
+        const { status, guestName } = parseExternalSummary(r.summary);
+        const googleEventId = deriveGoogleEventIdFromUid(r.uid);
+        const calendarDescription = formatExternalDescription({ summary: guestName, status, details: r.description });
+
+        const inserted = await query(
+          `INSERT INTO bookings (
+             user_id, start_date, end_date, status, who_going, notes, calendar_description,
+             source, external_guest_name, google_event_id
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'google_calendar', $8, $9)
+           RETURNING id, start_date, end_date, status, who_going, notes, created_at, source`,
+          [req.user.id, r.start, r.end, status, guestName, r.description || null, calendarDescription, guestName, googleEventId]
+        );
+
+        // Keep the in-memory "already exists" list in sync in case the same
+        // event appears more than once in this pass (defensive).
+        existingRanges.push({ start_date: r.start, end_date: r.end });
+
+        if (includeOld || r.end >= today) {
+          const row = inserted.rows[0];
+          dbResult.rows.push({
+            ...row,
+            arrival_time: null,
+            departure_time: null,
+            master_bedroom_config: null,
+            middle_bedroom_config: null,
+            first_bedroom_config: null,
             guest_name: guestName,
             guest_email: '',
             guest_phone: '',
-            calendar_description: formatExternalDescription({ summary: guestName, status, details: r.description }),
-          };
-        })
-        .sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+            calendar_description: calendarDescription,
+          });
+        }
+      }
     } catch (err) {
       // Keep the DB bookings visible even if the external feed is temporarily unavailable.
+      calendarSyncError = err.message;
     }
   }
 
-  res.json({ bookings: [...dbResult.rows, ...externalRows] });
+  dbResult.rows.sort((a, b) => (a.start_date < b.start_date ? 1 : a.start_date > b.start_date ? -1 : 0));
+
+  res.json({ bookings: dbResult.rows, calendar_sync_error: calendarSyncError });
 });
 
 // POST /api/bookings — logged-in guests propose a date range; starts as "provisional".
@@ -511,6 +543,18 @@ function formatBookingDescription({
   if (firstBedroomConfig) lines.push(`1st bedroom: ${firstBedroomConfig}`);
   if (notes) lines.push(`Notes: ${notes}`);
   return lines.join('\n');
+}
+
+// Google Calendar events written by this app carry a "Confirmed - <name>" or
+// "Provisional - <name>" summary (see upsertGoogleCalendarEvent). Splitting
+// that back out lets an event created directly on the calendar (not through
+// the app) still come back with a sensible status and guest name.
+function parseExternalSummary(rawSummary) {
+  const summary = (rawSummary || 'External booking').trim();
+  const match = summary.match(/^(Confirmed|Provisional)\s*[-:]\s*(.*)$/i);
+  const status = match ? match[1].toLowerCase() : 'confirmed';
+  const guestName = (match ? match[2].trim() : summary) || 'Google Calendar guest';
+  return { status, guestName };
 }
 
 function formatExternalDescription({ summary, status, details }) {

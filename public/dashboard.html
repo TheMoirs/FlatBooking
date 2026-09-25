@@ -272,6 +272,11 @@
   function statusPill(status) {
     return `<span class="status-pill ${status}">${status}</span>`;
   }
+  function sourceBadge(b) {
+    return b.source === 'google_calendar'
+      ? '<span class="status-pill" style="background:var(--sand,#eee);color:var(--ink-soft)" title="Auto-added from the linked Google Calendar">From calendar</span>'
+      : '';
+  }
   function fmtRange(start, end) {
     const s = new Date(start), e = new Date(end);
     const opts = { day: 'numeric', month: 'short', year: 'numeric' };
@@ -311,6 +316,7 @@
           <div class="booking-meta">${b.who_going ? b.who_going + ' · ' : ''}Requested ${b.created_at ? new Date(b.created_at).toLocaleDateString('en-GB') : '—'}${b.notes ? ' · ' + b.notes : ''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
+          ${sourceBadge(b)}
           ${statusPill(b.status)}
           ${isEditable(b) ? `<button class="btn btn-ghost btn-small edit-btn" data-id="${b.id}">Edit</button>` : ''}
           ${isEditable(b) ? `<button class="btn btn-ghost btn-small cancel-btn" data-id="${b.id}">Cancel</button>` : ''}
@@ -328,12 +334,17 @@
   async function loadAllBookings(includeOld) {
     const list = document.getElementById('all-bookings-list');
     list.innerHTML = '<li class="empty-state">Loading…</li>';
-    let bookings;
+    let bookings, calendar_sync_error;
     try {
-      ({ bookings } = await Api.allBookings(includeOld));
+      ({ bookings, calendar_sync_error } = await Api.allBookings(includeOld));
     } catch (e) {
       list.innerHTML = `<li class="empty-state">Couldn't load bookings: ${e.message}</li>`;
       return;
+    }
+    const existingBanner = document.getElementById('all-bookings-sync-error');
+    if (existingBanner) existingBanner.remove();
+    if (calendar_sync_error) {
+      list.insertAdjacentHTML('beforebegin', `<div id="all-bookings-sync-error" class="form-error show" style="margin-bottom:12px">Couldn't sync the linked Google Calendar: ${escapeHtml(calendar_sync_error)}</div>`);
     }
     if (!bookings.length) { list.innerHTML = '<li class="empty-state">No bookings yet.</li>'; return; }
     list.innerHTML = bookings.map((b) => `
@@ -343,6 +354,7 @@
           <div class="booking-meta">${b.who_going ? b.who_going + ' · ' : ''}${b.guest_name}${b.guest_email ? ' · ' + b.guest_email : ''}${b.guest_phone ? ' · ' + b.guest_phone : ''}${b.notes ? ' · ' + b.notes : ''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
+          ${sourceBadge(b)}
           ${statusPill(b.status)}
           ${isEditable(b) && b.status === 'provisional' ? `<button class="btn btn-primary btn-small authorise-btn" data-id="${b.id}">Authorise</button>` : ''}
           ${isEditable(b) ? `<button class="btn btn-ghost btn-small edit-btn" data-id="${b.id}">Edit</button>` : ''}

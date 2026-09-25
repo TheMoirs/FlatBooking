@@ -30,8 +30,17 @@ CREATE TABLE IF NOT EXISTS bookings (
   created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
   authorised_by              INTEGER REFERENCES users(id),
   authorised_at              TIMESTAMPTZ,
+  -- 'google_calendar' marks a booking that was auto-imported from the linked
+  -- calendar feed rather than requested through the app; external_guest_name
+  -- carries the guest label parsed from that calendar event's summary, since
+  -- the row's user_id is the admin who ran the import, not the actual guest.
+  source                    TEXT NOT NULL DEFAULT 'app' CHECK (source IN ('app', 'google_calendar')),
+  external_guest_name       TEXT,
   CHECK (end_date > start_date)
 );
+
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'app' CHECK (source IN ('app', 'google_calendar'));
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS external_guest_name TEXT;
 
 -- "who_going" was added after the table already existed in some deployments
 -- (previously it was only ever folded into calendar_description, not stored

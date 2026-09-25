@@ -255,6 +255,7 @@ async function fetchExternalBusyRanges(calendarUrl) {
       end: toDateOnly(event.end),
       summary: (event.summary || 'External booking').trim(),
       description: (event.description || '').trim(),
+      uid: event.uid || null,
     });
   }
 
@@ -266,10 +267,22 @@ function toDateOnly(d) {
   return date.toISOString().slice(0, 10);
 }
 
+// Google-hosted calendars give VEVENTs a UID of the form "<eventId>@google.com".
+// Stripping that suffix recovers the same id the Calendar API uses, so a
+// booking we auto-imported from the feed can still be updated/deleted via
+// the API later. Returns null for calendars that aren't Google-hosted (the
+// UID won't have that shape), in which case we just don't store one.
+function deriveGoogleEventIdFromUid(uid) {
+  if (!uid) return null;
+  const match = String(uid).match(/^(.+)@google\.com$/);
+  return match ? match[1] : null;
+}
+
 module.exports = {
   fetchExternalBusyRanges,
   upsertGoogleCalendarEvent,
   deleteGoogleCalendarEvent,
   deriveGoogleCalendarIdFromUrl,
+  deriveGoogleEventIdFromUid,
   checkGoogleCalendarWriteAccess,
 };
