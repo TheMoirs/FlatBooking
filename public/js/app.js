@@ -23,20 +23,23 @@ const Api = {
     if (!r.ok) throw new Error(data.error || 'Unable to load availability.');
     return data;
   },
-  async myBookings() {
-    const r = await fetch('/api/bookings', { credentials: 'include' });
+  async myBookings(includeOld) {
+    const r = await fetch(`/api/bookings${includeOld ? '?includeOld=1' : ''}`, { credentials: 'include' });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || 'Unable to load bookings.');
     return data;
   },
-  async allBookings() {
-    const r = await fetch('/api/bookings?all=1', { credentials: 'include' });
+  async allBookings(includeOld) {
+    const r = await fetch(`/api/bookings?all=1${includeOld ? '&includeOld=1' : ''}`, { credentials: 'include' });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || 'Unable to load bookings.');
     return data;
   },
   async createBooking(payload) {
     return Api._send('/api/bookings', payload);
+  },
+  async editBooking(id, payload) {
+    return Api._send(`/api/bookings/${id}`, payload, 'PUT');
   },
   async authoriseBooking(id) {
     return Api._send(`/api/bookings/${id}/authorise`, {}, 'POST');

@@ -33,6 +33,7 @@ router.get('/availability', async (req, res) => {
   );
 
   const ranges = internal.rows.map((b) => ({
+    id: b.id,
     start: toDateOnlyValue(b.start_date),
     end: toDateOnlyValue(b.end_date),
     status: b.status,
@@ -86,27 +87,39 @@ router.get('/availability', async (req, res) => {
 });
 
 // GET /api/bookings — the current user's own bookings, or (with ?all=1 and admin role) everyone's.
+// By default only bookings that are still current or in the future are
+// returned (end_date today or later); pass ?includeOld=1 to also get past
+// ones — this backs the "Show old bookings" checkbox in the dashboard.
 router.get('/bookings', attachUser, requireAuth, async (req, res) => {
   const wantsAll = req.query.all === '1';
+  const includeOld = req.query.includeOld === '1';
+  const today = todayStr();
   if (wantsAll && req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Admin access only.' });
   }
 
   if (!wantsAll) {
     const result = await query(
-      `SELECT id, start_date, end_date, status, notes, created_at
-       FROM bookings WHERE user_id = $1 ORDER BY start_date DESC`,
-      [req.user.id]
+      `SELECT id, start_date, end_date, status, who_going, notes, created_at,
+              arrival_time, departure_time,
+              master_bedroom_config, middle_bedroom_config, first_bedroom_config
+       FROM bookings WHERE user_id = $1 AND ($2::boolean OR end_date >= $3)
+       ORDER BY start_date DESC`,
+      [req.user.id, includeOld, today]
     );
     return res.json({ bookings: result.rows });
   }
 
   const dbResult = await query(
-    `SELECT b.id, b.start_date, b.end_date, b.status, b.notes, b.created_at,
+    `SELECT b.id, b.start_date, b.end_date, b.status, b.who_going, b.notes, b.created_at,
+            b.arrival_time, b.departure_time,
+            b.master_bedroom_config, b.middle_bedroom_config, b.first_bedroom_config,
             u.name AS guest_name, u.email AS guest_email, u.phone AS guest_phone,
             b.calendar_description
      FROM bookings b JOIN users u ON u.id = b.user_id
-     ORDER BY b.start_date DESC`
+     WHERE ($1::boolean OR b.end_date >= $2)
+     ORDER BY b.start_date DESC`,
+    [includeOld, today]
   );
 
   let externalRows = [];
@@ -116,6 +129,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
     try {
       const external = await fetchExternalBusyRanges(calendarUrl);
       externalRows = external
+        .filter((r) => includeOld || r.end >= today)
         .map((r) => {
           const summary = (r.summary || 'External booking').trim();
           const match = summary.match(/^(Confirmed|Provisional)\s*[-:]\s*(.*)$/i);
@@ -126,6 +140,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
             start_date: r.start,
             end_date: r.end,
             status,
+            who_going: guestName,
             notes: r.description || '',
             created_at: null,
             guest_name: guestName,
@@ -192,16 +207,17 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
 
   const result = await query(
     `INSERT INTO bookings (
-       user_id, start_date, end_date, status,
+       user_id, start_date, end_date, status, who_going,
        arrival_time, departure_time,
        master_bedroom_config, middle_bedroom_config, first_bedroom_config,
        notes, calendar_description
-     ) VALUES ($1, $2, $3, 'provisional', $4, $5, $6, $7, $8, $9, $10)
-     RETURNING id, start_date, end_date, status, notes, calendar_description, created_at`,
+     ) VALUES ($1, $2, $3, 'provisional', $4, $5, $6, $7, $8, $9, $10, $11)
+     RETURNING id, start_date, end_date, status, who_going, notes, calendar_description, created_at`,
     [
       req.user.id,
       start_date,
       end_date,
+      whoGoing,
       arrival_time || null,
       departure_time || null,
       master_bedroom_config || null,
@@ -263,7 +279,7 @@ router.post('/bookings/:id/authorise', attachUser, requireAdmin, async (req, res
       eventId: result.rows[0].google_event_id,
       startDate: row.start_date,
       endDate: row.end_date,
-      guestName: row.guest_name,
+      guestName: row.who_going || row.guest_name,
       status: 'confirmed',
       arrivalTime: row.arrival_time,
       departureTime: row.departure_time,
@@ -277,40 +293,154 @@ router.post('/bookings/:id/authorise', attachUser, requireAdmin, async (req, res
   res.json({ booking: result.rows[0] });
 });
 
-// POST /api/bookings/:id/cancel — the booking's own guest, or any admin, can cancel it.
-router.post('/bookings/:id/cancel', attachUser, requireAuth, async (req, res) => {
+// PUT /api/bookings/:id — the booking's own guest, or any admin, can edit its
+// details (dates, who's going, arrival/leave, bedroom configs, notes).
+// Editing doesn't change status — that's still done via authorise/cancel.
+router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
   const existing = await query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
   if (!existing.rows.length) return res.status(404).json({ error: 'Booking not found.' });
-  if (existing.rows[0].user_id !== req.user.id && req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'You can only cancel your own bookings.' });
+  const current = existing.rows[0];
+  if (current.user_id !== req.user.id && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'You can only edit your own bookings.' });
   }
 
+  const {
+    start_date,
+    end_date,
+    who_going,
+    notes,
+    arrival_time,
+    departure_time,
+    master_bedroom_config,
+    middle_bedroom_config,
+    first_bedroom_config,
+  } = req.body || {};
+  if (!start_date || !end_date) {
+    return res.status(400).json({ error: 'Start and end dates are required.' });
+  }
+  if (!who_going || !String(who_going).trim()) {
+    return res.status(400).json({ error: 'Who’s going? is required.' });
+  }
+  if (start_date >= end_date) {
+    return res.status(400).json({ error: 'The checkout date must be after the check-in date.' });
+  }
+
+  const others = await query(
+    `SELECT start_date, end_date FROM bookings WHERE status <> 'cancelled' AND id <> $1
+     AND start_date < $3 AND end_date > $2`,
+    [req.params.id, start_date, end_date]
+  );
+  const clash = others.rows.some((b) =>
+    overlaps(start_date, end_date, toDateOnlyValue(b.start_date), toDateOnlyValue(b.end_date))
+  );
+  if (clash) {
+    return res.status(409).json({ error: 'Those dates overlap with an existing booking. Please pick another range.' });
+  }
+
+  const whoGoing = String(who_going).trim();
+  const calendarDescription = buildCalendarDescription({
+    whoGoing,
+    status: current.status,
+    notes,
+    arrivalTime: arrival_time,
+    departureTime: departure_time,
+    masterBedroomConfig: master_bedroom_config,
+    middleBedroomConfig: middle_bedroom_config,
+    firstBedroomConfig: first_bedroom_config,
+  });
+
   const result = await query(
-    `UPDATE bookings SET status = 'cancelled' WHERE id = $1
-     RETURNING id, start_date, end_date, status, google_event_id`,
-    [req.params.id]
+    `UPDATE bookings SET
+       start_date = $2, end_date = $3, who_going = $4,
+       arrival_time = $5, departure_time = $6,
+       master_bedroom_config = $7, middle_bedroom_config = $8, first_bedroom_config = $9,
+       notes = $10, calendar_description = $11
+     WHERE id = $1
+     RETURNING id, start_date, end_date, status, who_going, notes, calendar_description, google_event_id, created_at`,
+    [
+      req.params.id,
+      start_date,
+      end_date,
+      whoGoing,
+      arrival_time || null,
+      departure_time || null,
+      master_bedroom_config || null,
+      middle_bedroom_config || null,
+      first_bedroom_config || null,
+      notes || null,
+      calendarDescription || null,
+    ]
   );
 
   const booking = result.rows[0];
-  let googleCalendarRemoved = true;
-  if (booking?.google_event_id) {
-    googleCalendarRemoved = await deleteGoogleCalendarEvent(booking.google_event_id);
-    if (googleCalendarRemoved) {
-      // Only forget the event id once we know it's actually gone, so a
-      // failed delete doesn't leave an orphaned event nobody knows about.
-      await query('UPDATE bookings SET google_event_id = NULL WHERE id = $1', [booking.id]);
-      booking.google_event_id = null;
-    }
+  const eventId = await upsertGoogleCalendarEvent({
+    eventId: booking.google_event_id || null,
+    startDate: start_date,
+    endDate: end_date,
+    guestName: whoGoing,
+    status: booking.status,
+    arrivalTime: arrival_time,
+    departureTime: departure_time,
+    masterBedroomConfig: master_bedroom_config,
+    middleBedroomConfig: middle_bedroom_config,
+    firstBedroomConfig: first_bedroom_config,
+    notes,
+  });
+
+  const googleCalendarUpdated = Boolean(eventId);
+  if (eventId && eventId !== booking.google_event_id) {
+    await query('UPDATE bookings SET google_event_id = $1 WHERE id = $2', [eventId, booking.id]);
+    booking.google_event_id = eventId;
   }
 
   res.json({
     booking,
+    google_calendar_updated: googleCalendarUpdated,
+    google_calendar_warning: googleCalendarUpdated
+      ? null
+      : 'Booking updated, but Google Calendar update was blocked. Add the service account as an Editor on the shared calendar.',
+  });
+});
+
+// POST /api/bookings/:id/cancel — the booking's own guest, or any admin, can
+// cancel it. Cancelling removes the booking from Google Calendar and then
+// deletes it outright — there's no "cancelled" state left lingering in the
+// app afterwards.
+router.post('/bookings/:id/cancel', attachUser, requireAuth, async (req, res) => {
+  const existing = await query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
+  if (!existing.rows.length) return res.status(404).json({ error: 'Booking not found.' });
+  const booking = existing.rows[0];
+  if (booking.user_id !== req.user.id && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'You can only cancel your own bookings.' });
+  }
+
+  let googleCalendarRemoved = true;
+  if (booking.google_event_id) {
+    googleCalendarRemoved = await deleteGoogleCalendarEvent(booking.google_event_id);
+  }
+
+  // Delete the booking either way — a Google Calendar hiccup shouldn't block
+  // removing it from the app; the warning below tells the admin to clean up
+  // the calendar event by hand if that happened.
+  await query('DELETE FROM bookings WHERE id = $1', [req.params.id]);
+
+  res.json({
+    deleted: true,
+    booking_id: Number(req.params.id),
     google_calendar_removed: googleCalendarRemoved,
     google_calendar_warning: googleCalendarRemoved
       ? null
-      : 'Booking cancelled, but removing it from Google Calendar failed. Check the server logs and remove the event manually if needed.',
+      : 'Booking removed from the app, but removing it from Google Calendar failed. Check the server logs and remove the event manually if needed.',
   });
 });
+
+// Today's date as 'YYYY-MM-DD' in the server's local timezone (via Intl,
+// so it reflects the actual calendar day where this app runs rather than
+// UTC — the same local/UTC mismatch caused the earlier date bug, so this
+// deliberately never touches toISOString()).
+function todayStr() {
+  return new Date().toLocaleDateString('en-CA');
+}
 
 function addMonths(dateStr, n) {
   // Stay in UTC throughout — mixing a local setter like setMonth() with

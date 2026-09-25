@@ -486,6 +486,7 @@ section.tight { padding: 48px 0; }
   max-height: 90vh;
   overflow-y: auto;
 }
+.modal.modal-wide { max-width: 640px; }
 .modal h3 { margin-bottom: 4px; }
 .modal .sub { color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 20px; }
 .modal .close-x { float: right; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--ink-soft); }
@@ -515,6 +516,14 @@ section.tight { padding: 48px 0; }
   margin: 0 !important;
 }
 .radio-row input { width: auto; }
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+.checkbox-row input[type="checkbox"] { width: auto; }
 .modal-switch { font-size: 0.88rem; margin-top: 14px; text-align: center; }
 .form-error { background: #F6DED6; color: #7A3316; padding: 10px 14px; border-radius: 4px; font-size: 0.87rem; margin-bottom: 14px; display: none; }
 .form-error.show { display: block; }

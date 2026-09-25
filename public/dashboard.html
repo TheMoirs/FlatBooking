@@ -97,6 +97,7 @@
           <div class="radio-row">
             <label><input type="radio" name="middle-bedroom-config" value="Double" /> Double</label>
             <label><input type="radio" name="middle-bedroom-config" value="Twin Singles" /> Twin Singles</label>
+            <label><input type="radio" name="middle-bedroom-config" value="Not Required" /> Not Required</label>
           </div>
         </div>
         <div class="field">
@@ -104,6 +105,7 @@
           <div class="radio-row">
             <label><input type="radio" name="first-bedroom-config" value="Double" /> Double</label>
             <label><input type="radio" name="first-bedroom-config" value="Twin Singles" /> Twin Singles</label>
+            <label><input type="radio" name="first-bedroom-config" value="Not Required" /> Not Required</label>
           </div>
         </div>
 
@@ -119,6 +121,7 @@
     <!-- My bookings -->
     <div class="dash-panel" id="panel-my-bookings">
       <h2>My bookings</h2>
+      <label class="checkbox-row"><input type="checkbox" id="my-bookings-show-old" /> Show old bookings</label>
       <ul class="booking-list" id="my-bookings-list"></ul>
     </div>
 
@@ -126,6 +129,7 @@
     <div class="dash-panel" id="panel-all-bookings">
       <h2>All bookings</h2>
       <p style="color:var(--ink-soft)">Authorise a provisional booking once you're happy to confirm it, or cancel one that shouldn't go ahead.</p>
+      <label class="checkbox-row"><input type="checkbox" id="all-bookings-show-old" /> Show old bookings</label>
       <ul class="booking-list" id="all-bookings-list"></ul>
     </div>
 
@@ -146,6 +150,84 @@
         <button class="btn btn-primary" id="save-settings-btn">Save</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Edit booking modal -->
+<div class="modal-backdrop" id="edit-modal">
+  <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+    <button class="close-x" id="edit-modal-close" aria-label="Close">&times;</button>
+    <h3 id="edit-modal-title">Edit booking</h3>
+    <p class="sub">Pick a check-in date, then a check-out date, to change the dates — or leave them as they are.</p>
+
+    <div class="form-error" id="edit-error"></div>
+
+    <div class="calendar-card" style="max-width:560px">
+      <div class="calendar-toolbar">
+        <h3 id="edit-cal-label">Loading…</h3>
+        <div class="calendar-nav">
+          <button id="edit-cal-prev" type="button" aria-label="Previous months">&#8249;</button>
+          <button id="edit-cal-next" type="button" aria-label="Next months">&#8250;</button>
+        </div>
+      </div>
+      <div class="calendar-months" id="edit-cal-months" style="grid-template-columns:1fr"></div>
+      <div class="calendar-legend">
+        <span><span class="swatch available"></span> Available</span>
+        <span><span class="swatch booked"></span> Booked</span>
+      </div>
+    </div>
+    <p id="edit-selection-summary" style="font-weight:600"></p>
+
+    <div class="field">
+      <label for="edit-who-going">Who’s going?</label>
+      <input id="edit-who-going" type="text" maxlength="120" />
+    </div>
+    <div class="field">
+      <label>Arrival time at flat</label>
+      <div class="radio-row">
+        <label><input type="radio" name="edit-arrival-time" value="Morning" /> Morning</label>
+        <label><input type="radio" name="edit-arrival-time" value="Afternoon" /> Afternoon</label>
+        <label><input type="radio" name="edit-arrival-time" value="Evening" /> Evening</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>Flat leave time</label>
+      <div class="radio-row">
+        <label><input type="radio" name="edit-leave-time" value="Morning" /> Morning</label>
+        <label><input type="radio" name="edit-leave-time" value="Afternoon" /> Afternoon</label>
+        <label><input type="radio" name="edit-leave-time" value="Evening" /> Evening</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>Master bedroom configuration</label>
+      <div class="radio-row">
+        <label><input type="radio" name="edit-master-bedroom-config" value="Double" /> Double</label>
+        <label><input type="radio" name="edit-master-bedroom-config" value="Twin Singles" /> Twin Singles</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>Middle bedroom configuration</label>
+      <div class="radio-row">
+        <label><input type="radio" name="edit-middle-bedroom-config" value="Double" /> Double</label>
+        <label><input type="radio" name="edit-middle-bedroom-config" value="Twin Singles" /> Twin Singles</label>
+        <label><input type="radio" name="edit-middle-bedroom-config" value="Not Required" /> Not Required</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>1st bedroom configuration</label>
+      <div class="radio-row">
+        <label><input type="radio" name="edit-first-bedroom-config" value="Double" /> Double</label>
+        <label><input type="radio" name="edit-first-bedroom-config" value="Twin Singles" /> Twin Singles</label>
+        <label><input type="radio" name="edit-first-bedroom-config" value="Not Required" /> Not Required</label>
+      </div>
+    </div>
+    <div class="field">
+      <label for="edit-notes">Anything we should know? (optional)</label>
+      <textarea id="edit-notes" rows="3"></textarea>
+    </div>
+
+    <button class="btn btn-primary" id="edit-save-btn">Save changes</button>
+    <button class="btn btn-ghost" id="edit-cancel-btn" type="button" style="margin-left:8px">Cancel</button>
   </div>
 </div>
 
@@ -172,8 +254,8 @@
     document.querySelectorAll('.dash-tab').forEach((t) => t.classList.remove('active'));
     document.getElementById('panel-' + id).classList.add('active');
     document.querySelector(`.dash-tab[data-tab="${id}"]`).classList.add('active');
-    if (id === 'my-bookings') loadMyBookings();
-    if (id === 'all-bookings') loadAllBookings();
+    if (id === 'my-bookings') loadMyBookings(document.getElementById('my-bookings-show-old').checked);
+    if (id === 'all-bookings') loadAllBookings(document.getElementById('all-bookings-show-old').checked);
     if (id === 'settings') loadSettings();
   }
 
@@ -196,59 +278,86 @@
     return `${s.toLocaleDateString('en-GB', opts)} → ${e.toLocaleDateString('en-GB', opts)}`;
   }
 
-  async function loadMyBookings() {
+  function isEditable(b) {
+    // External (Google Calendar-only) rows have an id like "external:...:..."
+    // — they don't exist in our own database, so there's nothing to edit or
+    // cancel here for those.
+    return typeof b.id === 'number' || /^\d+$/.test(String(b.id));
+  }
+
+  async function confirmAndCancel(id, reloadFn) {
+    const ok = confirm('Cancel this booking? It will be removed from the app and from Google Calendar immediately — this can\'t be undone.');
+    if (!ok) return;
+    const result = await Api.cancelBooking(id);
+    if (result && result.google_calendar_warning) alert(result.google_calendar_warning);
+    reloadFn();
+  }
+
+  async function loadMyBookings(includeOld) {
     const list = document.getElementById('my-bookings-list');
     list.innerHTML = '<li class="empty-state">Loading…</li>';
-    const { bookings } = await Api.myBookings();
+    let bookings;
+    try {
+      ({ bookings } = await Api.myBookings(includeOld));
+    } catch (e) {
+      list.innerHTML = `<li class="empty-state">Couldn't load bookings: ${e.message}</li>`;
+      return;
+    }
     if (!bookings.length) { list.innerHTML = '<li class="empty-state">No bookings yet — head to "New booking" to request some dates.</li>'; return; }
     list.innerHTML = bookings.map((b) => `
       <li class="booking-row">
         <div>
           <div class="booking-dates">${fmtRange(b.start_date, b.end_date)}</div>
-          <div class="booking-meta">Requested ${new Date(b.created_at).toLocaleDateString('en-GB')}${b.notes ? ' · ' + b.notes : ''}</div>
+          <div class="booking-meta">${b.who_going ? b.who_going + ' · ' : ''}Requested ${b.created_at ? new Date(b.created_at).toLocaleDateString('en-GB') : '—'}${b.notes ? ' · ' + b.notes : ''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
           ${statusPill(b.status)}
-          ${b.status !== 'cancelled' ? `<button class="btn btn-ghost btn-small cancel-btn" data-id="${b.id}">Cancel</button>` : ''}
+          ${isEditable(b) ? `<button class="btn btn-ghost btn-small edit-btn" data-id="${b.id}">Edit</button>` : ''}
+          ${isEditable(b) ? `<button class="btn btn-ghost btn-small cancel-btn" data-id="${b.id}">Cancel</button>` : ''}
         </div>
       </li>
     `).join('');
+    list.querySelectorAll('.edit-btn').forEach((btn) => {
+      btn.addEventListener('click', () => openEditModal(bookings.find((b) => String(b.id) === btn.dataset.id), () => loadMyBookings(document.getElementById('my-bookings-show-old').checked)));
+    });
     list.querySelectorAll('.cancel-btn').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const result = await Api.cancelBooking(btn.dataset.id);
-        if (result && result.google_calendar_warning) alert(result.google_calendar_warning);
-        loadMyBookings();
-      });
+      btn.addEventListener('click', () => confirmAndCancel(btn.dataset.id, () => loadMyBookings(document.getElementById('my-bookings-show-old').checked)));
     });
   }
 
-  async function loadAllBookings() {
+  async function loadAllBookings(includeOld) {
     const list = document.getElementById('all-bookings-list');
     list.innerHTML = '<li class="empty-state">Loading…</li>';
-    const { bookings } = await Api.allBookings();
+    let bookings;
+    try {
+      ({ bookings } = await Api.allBookings(includeOld));
+    } catch (e) {
+      list.innerHTML = `<li class="empty-state">Couldn't load bookings: ${e.message}</li>`;
+      return;
+    }
     if (!bookings.length) { list.innerHTML = '<li class="empty-state">No bookings yet.</li>'; return; }
     list.innerHTML = bookings.map((b) => `
       <li class="booking-row">
         <div>
           <div class="booking-dates">${fmtRange(b.start_date, b.end_date)}</div>
-          <div class="booking-meta">${b.guest_name} · ${b.guest_email} · ${b.guest_phone}${b.notes ? ' · ' + b.notes : ''}</div>
+          <div class="booking-meta">${b.who_going ? b.who_going + ' · ' : ''}${b.guest_name}${b.guest_email ? ' · ' + b.guest_email : ''}${b.guest_phone ? ' · ' + b.guest_phone : ''}${b.notes ? ' · ' + b.notes : ''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
           ${statusPill(b.status)}
-          ${b.status === 'provisional' ? `<button class="btn btn-primary btn-small authorise-btn" data-id="${b.id}">Authorise</button>` : ''}
-          ${b.status !== 'cancelled' ? `<button class="btn btn-ghost btn-small cancel-btn" data-id="${b.id}">Cancel</button>` : ''}
+          ${isEditable(b) && b.status === 'provisional' ? `<button class="btn btn-primary btn-small authorise-btn" data-id="${b.id}">Authorise</button>` : ''}
+          ${isEditable(b) ? `<button class="btn btn-ghost btn-small edit-btn" data-id="${b.id}">Edit</button>` : ''}
+          ${isEditable(b) ? `<button class="btn btn-ghost btn-small cancel-btn" data-id="${b.id}">Cancel</button>` : ''}
         </div>
       </li>
     `).join('');
     list.querySelectorAll('.authorise-btn').forEach((btn) => {
-      btn.addEventListener('click', async () => { await Api.authoriseBooking(btn.dataset.id); loadAllBookings(); });
+      btn.addEventListener('click', async () => { await Api.authoriseBooking(btn.dataset.id); loadAllBookings(document.getElementById('all-bookings-show-old').checked); });
+    });
+    list.querySelectorAll('.edit-btn').forEach((btn) => {
+      btn.addEventListener('click', () => openEditModal(bookings.find((b) => String(b.id) === btn.dataset.id), () => loadAllBookings(document.getElementById('all-bookings-show-old').checked)));
     });
     list.querySelectorAll('.cancel-btn').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const result = await Api.cancelBooking(btn.dataset.id);
-        if (result && result.google_calendar_warning) alert(result.google_calendar_warning);
-        loadAllBookings();
-      });
+      btn.addEventListener('click', () => confirmAndCancel(btn.dataset.id, () => loadAllBookings(document.getElementById('all-bookings-show-old').checked)));
     });
   }
 
@@ -256,6 +365,9 @@
     const { settings } = await Api.adminSettings();
     document.getElementById('gcal-url').value = (settings && settings.google_calendar_url) || '';
   }
+
+  document.getElementById('my-bookings-show-old').addEventListener('change', (e) => loadMyBookings(e.target.checked));
+  document.getElementById('all-bookings-show-old').addEventListener('change', (e) => loadAllBookings(e.target.checked));
 
   document.getElementById('save-settings-btn').addEventListener('click', async () => {
     const errEl = document.getElementById('settings-error');
@@ -392,6 +504,135 @@
       document.querySelectorAll('input[name="middle-bedroom-config"]').forEach((el) => el.checked = false);
       document.querySelectorAll('input[name="first-bedroom-config"]').forEach((el) => el.checked = false);
       document.getElementById('booking-notes').value = '';
+      loadBookingCalendar();
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.classList.add('show');
+    }
+  });
+
+  /* -------- Edit booking modal -------- */
+
+  let editCal = { anchorYear: new Date().getFullYear(), anchorMonth: new Date().getMonth(), ranges: [], start: null, end: null, bookingId: null, reloadFn: null };
+
+  function setRadioValue(name, value) {
+    document.querySelectorAll(`input[name="${name}"]`).forEach((el) => { el.checked = (el.value === value); });
+  }
+
+  async function openEditModal(booking, reloadFn) {
+    if (!booking) return;
+    editCal.bookingId = booking.id;
+    editCal.reloadFn = reloadFn;
+    editCal.start = booking.start_date;
+    editCal.end = booking.end_date;
+    const anchor = new Date(booking.start_date);
+    editCal.anchorYear = anchor.getUTCFullYear();
+    editCal.anchorMonth = anchor.getUTCMonth();
+
+    document.getElementById('edit-error').classList.remove('show');
+    document.getElementById('edit-who-going').value = booking.who_going || '';
+    document.getElementById('edit-notes').value = booking.notes || '';
+    setRadioValue('edit-arrival-time', booking.arrival_time || '');
+    setRadioValue('edit-leave-time', booking.departure_time || '');
+    setRadioValue('edit-master-bedroom-config', booking.master_bedroom_config || '');
+    setRadioValue('edit-middle-bedroom-config', booking.middle_bedroom_config || '');
+    setRadioValue('edit-first-bedroom-config', booking.first_bedroom_config || '');
+
+    // Fresh busy ranges, minus this booking's own dates — otherwise its own
+    // stay would show up as "booked" and block editing itself.
+    const from = new Date().toISOString().slice(0, 10);
+    const toDate = new Date(); toDate.setMonth(toDate.getMonth() + 13);
+    const { ranges } = await Api.availability(from, toDate.toISOString().slice(0, 10));
+    editCal.ranges = ranges.filter((r) => !(r.source === 'flat' && r.id === editCal.bookingId));
+
+    drawEditCalendar();
+    document.getElementById('edit-modal').classList.add('open');
+  }
+
+  function closeEditModal() {
+    document.getElementById('edit-modal').classList.remove('open');
+  }
+
+  function drawEditCalendar() {
+    const container = document.getElementById('edit-cal-months');
+    renderCalendarMonths(container, editCal.anchorYear, editCal.anchorMonth, 1, editCal.ranges, {
+      selectable: true,
+      selectedStart: editCal.start,
+      selectedEnd: editCal.end,
+      onSelect: onEditDaySelected,
+    });
+    const label = new Date(editCal.anchorYear, editCal.anchorMonth, 1);
+    document.getElementById('edit-cal-label').textContent = label.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+    document.getElementById('edit-selection-summary').textContent = (editCal.start && editCal.end) ? fmtRange(editCal.start, editCal.end) : '';
+  }
+
+  function onEditDaySelected(dateStr) {
+    if (!editCal.start || (editCal.start && editCal.end)) {
+      editCal.start = dateStr;
+      editCal.end = null;
+    } else if (dateStr > editCal.start) {
+      const crossesBooked = editCal.ranges.some((r) => r.start < dateStr && r.end > editCal.start);
+      if (crossesBooked) {
+        editCal.start = dateStr;
+        editCal.end = null;
+      } else {
+        editCal.end = dateStr;
+      }
+    } else {
+      editCal.start = dateStr;
+      editCal.end = null;
+    }
+    drawEditCalendar();
+  }
+
+  document.getElementById('edit-cal-prev').addEventListener('click', () => {
+    editCal.anchorMonth -= 1;
+    if (editCal.anchorMonth < 0) { editCal.anchorMonth = 11; editCal.anchorYear -= 1; }
+    drawEditCalendar();
+  });
+  document.getElementById('edit-cal-next').addEventListener('click', () => {
+    editCal.anchorMonth += 1;
+    if (editCal.anchorMonth > 11) { editCal.anchorMonth = 0; editCal.anchorYear += 1; }
+    drawEditCalendar();
+  });
+
+  document.getElementById('edit-modal-close').addEventListener('click', closeEditModal);
+  document.getElementById('edit-cancel-btn').addEventListener('click', closeEditModal);
+  document.getElementById('edit-modal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('edit-modal')) closeEditModal();
+  });
+
+  document.getElementById('edit-save-btn').addEventListener('click', async () => {
+    const errEl = document.getElementById('edit-error');
+    errEl.classList.remove('show');
+    try {
+      if (!editCal.start || !editCal.end) {
+        throw new Error('Pick a check-in and check-out date.');
+      }
+      const whoGoing = document.getElementById('edit-who-going').value.trim();
+      if (!whoGoing) {
+        throw new Error('Who’s going? is required.');
+      }
+      const selectedArrival = document.querySelector('input[name="edit-arrival-time"]:checked')?.value || '';
+      const selectedLeave = document.querySelector('input[name="edit-leave-time"]:checked')?.value || '';
+      const selectedMaster = document.querySelector('input[name="edit-master-bedroom-config"]:checked')?.value || '';
+      const selectedMiddle = document.querySelector('input[name="edit-middle-bedroom-config"]:checked')?.value || '';
+      const selectedFirst = document.querySelector('input[name="edit-first-bedroom-config"]:checked')?.value || '';
+
+      const result = await Api.editBooking(editCal.bookingId, {
+        start_date: editCal.start,
+        end_date: editCal.end,
+        who_going: whoGoing,
+        arrival_time: selectedArrival || null,
+        departure_time: selectedLeave || null,
+        master_bedroom_config: selectedMaster,
+        middle_bedroom_config: selectedMiddle,
+        first_bedroom_config: selectedFirst,
+        notes: document.getElementById('edit-notes').value.trim(),
+      });
+      if (result && result.google_calendar_warning) alert(result.google_calendar_warning);
+      closeEditModal();
+      if (editCal.reloadFn) editCal.reloadFn();
       loadBookingCalendar();
     } catch (e) {
       errEl.textContent = e.message;

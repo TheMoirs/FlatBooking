@@ -18,11 +18,12 @@ CREATE TABLE IF NOT EXISTS bookings (
   start_date                DATE NOT NULL,
   end_date                  DATE NOT NULL, -- exclusive, i.e. the checkout day (matches iCal DTEND convention)
   status                    TEXT NOT NULL DEFAULT 'provisional' CHECK (status IN ('provisional', 'confirmed', 'cancelled')),
+  who_going                 TEXT,
   arrival_time              TEXT,
   departure_time            TEXT,
   master_bedroom_config     TEXT CHECK (master_bedroom_config IN ('Double', 'Twin Singles')),
-  middle_bedroom_config     TEXT CHECK (middle_bedroom_config IN ('Double', 'Twin Singles')),
-  first_bedroom_config      TEXT CHECK (first_bedroom_config IN ('Double', 'Twin Singles')),
+  middle_bedroom_config     TEXT CHECK (middle_bedroom_config IN ('Double', 'Twin Singles', 'Not Required')),
+  first_bedroom_config      TEXT CHECK (first_bedroom_config IN ('Double', 'Twin Singles', 'Not Required')),
   notes                     TEXT,
   calendar_description      TEXT,
   google_event_id           TEXT,
@@ -31,6 +32,24 @@ CREATE TABLE IF NOT EXISTS bookings (
   authorised_at              TIMESTAMPTZ,
   CHECK (end_date > start_date)
 );
+
+-- "who_going" was added after the table already existed in some deployments
+-- (previously it was only ever folded into calendar_description, not stored
+-- on its own) — this backfills it in on existing databases; it's a no-op
+-- on a fresh install where the CREATE TABLE above already included it.
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS who_going TEXT;
+
+-- 'Not Required' was added as a valid option for the middle/1st bedroom
+-- configuration after the table already existed in some deployments — the
+-- CREATE TABLE above covers a fresh install, this updates the CHECK
+-- constraints on an existing one (Postgres's default auto-generated name
+-- for an inline, unnamed column CHECK is "<table>_<column>_check").
+ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_middle_bedroom_config_check;
+ALTER TABLE bookings ADD CONSTRAINT bookings_middle_bedroom_config_check
+  CHECK (middle_bedroom_config IN ('Double', 'Twin Singles', 'Not Required'));
+ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_first_bedroom_config_check;
+ALTER TABLE bookings ADD CONSTRAINT bookings_first_bedroom_config_check
+  CHECK (first_bedroom_config IN ('Double', 'Twin Singles', 'Not Required'));
 
 CREATE INDEX IF NOT EXISTS idx_bookings_dates ON bookings (start_date, end_date) WHERE status <> 'cancelled';
 
