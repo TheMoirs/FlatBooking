@@ -151,6 +151,10 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
         // rather than let one odd calendar entry break the whole sync.
         if (!(r.start < r.end)) continue;
 
+        // Only import current & future stays — a past calendar event that
+        // was never booked through the app isn't worth adding retroactively.
+        if (r.end < today) continue;
+
         const alreadyInApp = existingRanges.some((b) => b.start_date === r.start && b.end_date === r.end);
         if (alreadyInApp) continue;
 
