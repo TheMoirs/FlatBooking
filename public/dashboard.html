@@ -130,13 +130,17 @@
     <!-- My bookings -->
     <div class="dash-panel" id="panel-my-bookings">
       <h2>My bookings</h2>
+      <p style="color:var(--ink-soft)">Click a booking for its full details.</p>
       <ul class="booking-list" id="my-bookings-list"></ul>
     </div>
 
     <!-- Admin: all bookings -->
     <div class="dash-panel" id="panel-all-bookings">
-      <h2>All bookings</h2>
-      <p style="color:var(--ink-soft)">Authorise a provisional booking once you're happy to confirm it, or cancel one that shouldn't go ahead.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <h2 style="margin:0">All bookings</h2>
+        <a class="btn btn-ghost btn-small" href="/agent-bookings.html" target="_blank" rel="noopener">Agent Bookings</a>
+      </div>
+      <p style="color:var(--ink-soft)">Authorise a provisional booking once you're happy to confirm it, or cancel one that shouldn't go ahead. Click a booking for its full details.</p>
       <ul class="booking-list" id="all-bookings-list"></ul>
     </div>
 
@@ -177,6 +181,14 @@
 </div>
 
 <!-- Edit booking modal -->
+<div class="modal-backdrop" id="details-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="details-modal-title">
+    <button class="close-x" id="details-modal-close" aria-label="Close">&times;</button>
+    <h3 id="details-modal-title">Booking details</h3>
+    <pre id="details-modal-body" style="white-space:pre-wrap;font-family:inherit;font-size:0.95rem;line-height:1.6;margin:0"></pre>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="edit-modal">
   <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
     <button class="close-x" id="edit-modal-close" aria-label="Close">&times;</button>
@@ -398,6 +410,20 @@
     return typeof b.id === 'number' || /^\d+$/.test(String(b.id));
   }
 
+  function openDetailsModal(booking) {
+    const text = (booking.calendar_description && booking.calendar_description.trim())
+      || 'No further details recorded for this booking.';
+    document.getElementById('details-modal-body').textContent = text;
+    document.getElementById('details-modal').classList.add('open');
+  }
+  function closeDetailsModal() {
+    document.getElementById('details-modal').classList.remove('open');
+  }
+  document.getElementById('details-modal-close').addEventListener('click', closeDetailsModal);
+  document.getElementById('details-modal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('details-modal')) closeDetailsModal();
+  });
+
   async function confirmAndCancel(id, reloadFn) {
     const ok = confirm('Cancel this booking? It will be removed from the app and from Google Calendar immediately — this can\'t be undone.');
     if (!ok) return;
@@ -418,7 +444,7 @@
     }
     if (!bookings.length) { list.innerHTML = '<li class="empty-state">No bookings yet — head to "New booking" to request some dates.</li>'; return; }
     list.innerHTML = bookings.map((b) => `
-      <li class="booking-row">
+      <li class="booking-row" data-id="${b.id}" style="cursor:pointer">
         <div>
           <div class="booking-dates">${fmtRange(b.start_date, b.end_date, { master: b.master_bedroom_config, middle: b.middle_bedroom_config, first: b.first_bedroom_config })}</div>
           <div class="booking-meta">${b.who_going ? b.who_going + ' · ' : ''}Requested ${b.created_at ? new Date(b.created_at).toLocaleDateString('en-GB') : '—'}${b.notes ? ' · ' + b.notes : ''}</div>
@@ -431,6 +457,12 @@
         </div>
       </li>
     `).join('');
+    list.querySelectorAll('.booking-row').forEach((row) => {
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        openDetailsModal(bookings.find((b) => String(b.id) === row.dataset.id));
+      });
+    });
     list.querySelectorAll('.edit-btn').forEach((btn) => {
       btn.addEventListener('click', () => openEditModal(bookings.find((b) => String(b.id) === btn.dataset.id), () => loadMyBookings()));
     });
@@ -456,7 +488,7 @@
     }
     if (!bookings.length) { list.innerHTML = '<li class="empty-state">No bookings yet.</li>'; return; }
     list.innerHTML = bookings.map((b) => `
-      <li class="booking-row">
+      <li class="booking-row" data-id="${b.id}" style="cursor:pointer">
         <div>
           <div class="booking-dates">${fmtRange(b.start_date, b.end_date, { master: b.master_bedroom_config, middle: b.middle_bedroom_config, first: b.first_bedroom_config })}</div>
           <div class="booking-meta">${b.who_going ? b.who_going + ' · ' : ''}${b.guest_name}${b.guest_email ? ' · ' + b.guest_email : ''}${b.guest_phone ? ' · ' + b.guest_phone : ''}${b.notes ? ' · ' + b.notes : ''}</div>
@@ -470,6 +502,12 @@
         </div>
       </li>
     `).join('');
+    list.querySelectorAll('.booking-row').forEach((row) => {
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        openDetailsModal(bookings.find((b) => String(b.id) === row.dataset.id));
+      });
+    });
     list.querySelectorAll('.authorise-btn').forEach((btn) => {
       btn.addEventListener('click', async () => { await Api.authoriseBooking(btn.dataset.id); loadAllBookings(); });
     });

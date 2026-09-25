@@ -33,7 +33,7 @@
     <p class="lede">Our family's flat halfway between Malaga and Marbella — three bedrooms, a shared pool, and restaurants and beaches a few minutes away. Family and friends only.</p>
     <div class="hero-actions">
       <button class="btn btn-primary" id="hero-book-btn">Book Now</button>
-      <a class="btn btn-ghost" style="color:#fff;border-color:rgba(255,255,255,0.5)" href="#calendar">Check availability</a>
+      <a class="btn btn-ghost" style="color:#fff;border-color:rgba(255,255,255,0.5)" href="/availability.html" target="_blank" rel="noopener">Check availability</a>
     </div>
   </div>
 </section>
@@ -99,33 +99,6 @@
   <button class="lightbox-nav next" aria-label="Next">&#8250;</button>
 </div>
 
-<section id="calendar">
-  <div class="container">
-    <div class="section-head">
-      <h2>Availability</h2>
-      <p>A summary of booked and available dates. Log in to request a stay for any open date range.</p>
-    </div>
-    <div class="calendar-card">
-      <div class="calendar-toolbar">
-        <h3 id="cal-range-label">Loading…</h3>
-        <div class="calendar-nav">
-          <button id="cal-prev" aria-label="Previous months">&#8249;</button>
-          <button id="cal-next" aria-label="Next months">&#8250;</button>
-        </div>
-      </div>
-      <div class="calendar-months" id="calendar-months"></div>
-      <div class="calendar-legend">
-        <span><span class="swatch available"></span> Available</span>
-        <span><span class="swatch booked"></span> Booked</span>
-      </div>
-      <p id="cal-error" style="display:none;color:#9C3B2C;font-size:0.88rem;margin-top:14px"></p>
-    </div>
-    <div style="margin-top:28px">
-      <button class="btn btn-primary" id="cal-book-btn">Book Now</button>
-    </div>
-  </div>
-</section>
-
 <section id="costs" class="on-band">
   <div class="container">
     <div class="section-head">
@@ -162,54 +135,7 @@
 <script src="/js/calendar.js"></script>
 <script src="/js/app.js"></script>
 <script>
-  let calState = { ranges: [], anchorYear: new Date().getFullYear(), anchorMonth: new Date().getMonth() };
-
-  async function loadAvailability() {
-    const from = new Date().toISOString().slice(0, 10);
-    const toDate = new Date();
-    toDate.setMonth(toDate.getMonth() + 13);
-    const to = toDate.toISOString().slice(0, 10);
-
-    const errorEl = document.getElementById('cal-error');
-    try {
-      const data = await Api.availability(from, to);
-      calState.ranges = data.ranges || [];
-      if (data.externalError) {
-        errorEl.textContent = "Note: the linked calendar couldn't be read right now, so it may not be reflected below.";
-        errorEl.style.display = 'block';
-      } else {
-        errorEl.style.display = 'none';
-      }
-    } catch (e) {
-      calState.ranges = [];
-      errorEl.textContent = "Couldn't load availability — please try again shortly.";
-      errorEl.style.display = 'block';
-    }
-    drawCalendar();
-  }
-
-  function drawCalendar() {
-    const container = document.getElementById('calendar-months');
-    renderCalendarMonths(container, calState.anchorYear, calState.anchorMonth, 2, calState.ranges);
-    const first = new Date(calState.anchorYear, calState.anchorMonth, 1);
-    const last = new Date(calState.anchorYear, calState.anchorMonth + 1, 1);
-    document.getElementById('cal-range-label').textContent =
-      `${first.toLocaleString('en-GB', { month: 'short', year: 'numeric' })} – ${last.toLocaleString('en-GB', { month: 'short', year: 'numeric' })}`;
-  }
-
-  document.getElementById('cal-prev').addEventListener('click', () => {
-    calState.anchorMonth -= 1;
-    if (calState.anchorMonth < 0) { calState.anchorMonth = 11; calState.anchorYear -= 1; }
-    drawCalendar();
-  });
-  document.getElementById('cal-next').addEventListener('click', () => {
-    calState.anchorMonth += 1;
-    if (calState.anchorMonth > 11) { calState.anchorMonth = 0; calState.anchorYear += 1; }
-    drawCalendar();
-  });
-
   document.getElementById('hero-book-btn').addEventListener('click', () => onBookNowClick());
-  document.getElementById('cal-book-btn').addEventListener('click', () => onBookNowClick());
 
   function fmtGBP(n) {
     return `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -254,7 +180,6 @@
     { src: '/images/pool-aerial.jpg', alt: 'Aerial view of the pool and gardens' },
   ]);
 
-  loadAvailability();
   loadCosts();
 </script>
 </body>

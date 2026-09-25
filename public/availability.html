@@ -42,6 +42,7 @@
     <p id="avail-selection-summary" style="font-weight:600"></p>
     <button class="btn btn-primary" id="avail-book-btn" disabled>Book these dates</button>
     <button class="btn btn-ghost btn-small" id="avail-reset-btn" style="margin-left:8px">Clear selection</button>
+    <p id="avail-login-note" style="display:none;color:var(--ink-soft);font-size:0.9rem">Log in to book these dates.</p>
   </div>
 </div>
 
@@ -127,13 +128,13 @@
     const bookBtn = document.getElementById('avail-book-btn');
     if (availCal.start && availCal.end) {
       summary.textContent = fmtRange(availCal.start, availCal.end);
-      bookBtn.disabled = false;
+      if (bookBtn) bookBtn.disabled = false;
     } else if (availCal.start) {
       summary.textContent = `Check-in: ${availCal.start} — now pick a check-out date`;
-      bookBtn.disabled = true;
+      if (bookBtn) bookBtn.disabled = true;
     } else {
       summary.textContent = '';
-      bookBtn.disabled = true;
+      if (bookBtn) bookBtn.disabled = true;
     }
   }
 
@@ -155,7 +156,12 @@
   });
 
   (async function boot() {
-    await initSession();
+    const user = await initSession();
+    if (!user) {
+      document.getElementById('avail-book-btn').remove();
+      document.getElementById('avail-reset-btn').remove();
+      document.getElementById('avail-login-note').style.display = 'block';
+    }
     await loadAvailCalendar();
   })();
 </script>

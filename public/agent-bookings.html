@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Bookings — Mirador de Calahonda</title>
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <a class="brand" href="/">
+      <span class="mark">M</span>
+      <span class="name">Mirador de Calahonda</span>
+    </a>
+    <div class="nav-account" id="nav-account"></div>
+  </div>
+</header>
+
+<div class="container" style="padding:48px 24px 80px">
+  <h1 style="margin-bottom:8px">Agent Bookings</h1>
+  <p style="color:var(--ink-soft);margin-bottom:28px">Every booking, with room configurations and stay details — no charges.</p>
+
+  <div class="form-error" id="agent-error"></div>
+  <ul class="booking-list" id="agent-bookings-list"></ul>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+  function statusPill(status) {
+    return `<span class="status-pill ${status}">${status}</span>`;
+  }
+  function sourceBadge(b) {
+    return b.source === 'google_calendar'
+      ? '<span class="status-pill" style="background:var(--sand,#eee);color:var(--ink-soft)" title="Auto-added from the linked Google Calendar">From calendar</span>'
+      : '';
+  }
+  // end is the checkout day (exclusive), so the gap between the two dates
+  // is exactly the number of sleeps — no off-by-one to worry about.
+  function nightsBetween(start, end) {
+    const s = new Date(start + 'T00:00:00Z');
+    const e = new Date(end + 'T00:00:00Z');
+    return Math.round((e - s) / 86400000);
+  }
+  function fmtNights(n) {
+    return n === 1 ? '1 night' : `${n} nights`;
+  }
+  // No charges on this page — just dates, nights, and room configuration.
+  function fmtRange(start, end) {
+    const s = new Date(start), e = new Date(end);
+    const opts = { day: 'numeric', month: 'short', year: 'numeric' };
+    return `${s.toLocaleDateString('en-GB', opts)} → ${e.toLocaleDateString('en-GB', opts)} · ${fmtNights(nightsBetween(start, end))}`;
+  }
+  function fmtRoomConfig(b) {
+    const parts = [];
+    if (b.master_bedroom_config) parts.push(`Master: ${b.master_bedroom_config}`);
+    if (b.middle_bedroom_config) parts.push(`Middle: ${b.middle_bedroom_config}`);
+    if (b.first_bedroom_config) parts.push(`1st: ${b.first_bedroom_config}`);
+    if (b.sofa_bed_required) parts.push(`Sofa bed: ${b.sofa_bed_required}`);
+    return parts.join(' · ');
+  }
+
+  async function loadAgentBookings() {
+    const list = document.getElementById('agent-bookings-list');
+    const errEl = document.getElementById('agent-error');
+    list.innerHTML = '<li class="empty-state">Loading…</li>';
+    let bookings, calendar_sync_error;
+    try {
+      const r = await fetch('/api/bookings?all=1', { credentials: 'include' });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || 'Unable to load bookings.');
+      ({ bookings, calendar_sync_error } = data);
+    } catch (e) {
+      list.innerHTML = `<li class="empty-state">Couldn't load bookings: ${e.message}</li>`;
+      return;
+    }
+    if (calendar_sync_error) {
+      errEl.textContent = `Couldn't sync the linked Google Calendar: ${calendar_sync_error}`;
+      errEl.classList.add('show');
+    } else {
+      errEl.classList.remove('show');
+    }
+    if (!bookings.length) { list.innerHTML = '<li class="empty-state">No bookings yet.</li>'; return; }
+    list.innerHTML = bookings.map((b) => `
+      <li class="booking-row">
+        <div>
+          <div class="booking-dates">${fmtRange(b.start_date, b.end_date)}</div>
+          <div class="booking-meta">${b.who_going ? escapeHtml(b.who_going) + ' · ' : ''}${escapeHtml(b.guest_name || '')}${b.guest_email ? ' · ' + escapeHtml(b.guest_email) : ''}${b.guest_phone ? ' · ' + escapeHtml(b.guest_phone) : ''}</div>
+          <div class="booking-meta">${escapeHtml(fmtRoomConfig(b)) || 'No room configuration recorded'}</div>
+          ${b.notes ? `<div class="booking-meta">Notes: ${escapeHtml(b.notes)}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          ${sourceBadge(b)}
+          ${statusPill(b.status)}
+        </div>
+      </li>
+    `).join('');
+  }
+
+  (async function boot() {
+    const user = await initSession();
+    if (!user || user.role !== 'admin') {
+      document.querySelector('.container').innerHTML =
+        '<p style="color:var(--ink-soft)">You need to be logged in as an admin to view this page.</p>';
+      return;
+    }
+    await loadAgentBookings();
+  })();
+</script>
+</body>
+</html>

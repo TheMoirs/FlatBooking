@@ -139,7 +139,8 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
     const result = await query(
       `SELECT id, start_date, end_date, status, who_going, notes, created_at, source,
               arrival_time, departure_time,
-              master_bedroom_config, middle_bedroom_config, first_bedroom_config, sofa_bed_required
+              master_bedroom_config, middle_bedroom_config, first_bedroom_config, sofa_bed_required,
+              calendar_description
        FROM bookings WHERE user_id = $1 AND ($2::boolean OR end_date >= $3)
        ORDER BY start_date DESC`,
       [req.user.id, includeOld, today]
