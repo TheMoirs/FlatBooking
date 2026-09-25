@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Availability — Mirador de Calahonda</title>
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <a class="brand" href="/">
+      <span class="mark">M</span>
+      <span class="name">Mirador de Calahonda</span>
+    </a>
+    <div class="nav-account" id="nav-account"></div>
+  </div>
+</header>
+
+<div class="container" style="padding:48px 24px 80px">
+  <h1 style="margin-bottom:8px">Availability</h1>
+  <p style="color:var(--ink-soft);margin-bottom:28px">Pick a check-in date, then a check-out date from the available (unshaded) days.</p>
+
+  <div class="calendar-card" style="max-width:760px">
+    <div class="calendar-toolbar">
+      <h3 id="avail-cal-label">Loading…</h3>
+      <div class="calendar-nav">
+        <button id="avail-cal-prev" type="button" aria-label="Previous months">&#8249;</button>
+        <button id="avail-cal-next" type="button" aria-label="Next months">&#8250;</button>
+      </div>
+    </div>
+    <div class="calendar-months" id="avail-cal-months"></div>
+    <div class="calendar-legend">
+      <span><span class="swatch available"></span> Available</span>
+      <span><span class="swatch booked"></span> Booked</span>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;max-width:540px">
+    <div class="form-error" id="avail-error"></div>
+    <p id="avail-selection-summary" style="font-weight:600"></p>
+    <button class="btn btn-primary" id="avail-book-btn" disabled>Book these dates</button>
+    <button class="btn btn-ghost btn-small" id="avail-reset-btn" style="margin-left:8px">Clear selection</button>
+  </div>
+</div>
+
+<script src="/js/calendar.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  // A trimmed-down copy of the New booking picker in dashboard.html, but
+  // reachable without logging in first — clicking "Book these dates" carries
+  // the picked dates into sign-in/registration (or straight to New booking,
+  // pre-filled, if already logged in) via the shared onBookNowClick(intent).
+  let availCal = { anchorYear: new Date().getFullYear(), anchorMonth: new Date().getMonth(), ranges: [], start: null, end: null };
+
+  // end is the checkout day (exclusive), so the gap between the two dates
+  // is exactly the number of sleeps — no off-by-one to worry about.
+  function nightsBetween(start, end) {
+    const s = new Date(start + 'T00:00:00Z');
+    const e = new Date(end + 'T00:00:00Z');
+    return Math.round((e - s) / 86400000);
+  }
+  function fmtNights(n) {
+    return n === 1 ? '1 night' : `${n} nights`;
+  }
+  function fmtRange(start, end) {
+    const s = new Date(start), e = new Date(end);
+    const opts = { day: 'numeric', month: 'short', year: 'numeric' };
+    return `${s.toLocaleDateString('en-GB', opts)} → ${e.toLocaleDateString('en-GB', opts)} · ${fmtNights(nightsBetween(start, end))}`;
+  }
+
+  async function loadAvailCalendar() {
+    const errEl = document.getElementById('avail-error');
+    const from = new Date().toISOString().slice(0, 10);
+    const toDate = new Date();
+    toDate.setMonth(toDate.getMonth() + 13);
+    try {
+      const { ranges } = await Api.availability(from, toDate.toISOString().slice(0, 10));
+      availCal.ranges = ranges;
+      errEl.classList.remove('show');
+    } catch (e) {
+      availCal.ranges = [];
+      errEl.textContent = "Couldn't load availability — please try again shortly.";
+      errEl.classList.add('show');
+    }
+    drawAvailCalendar();
+  }
+
+  function drawAvailCalendar() {
+    const container = document.getElementById('avail-cal-months');
+    renderCalendarMonths(container, availCal.anchorYear, availCal.anchorMonth, 2, availCal.ranges, {
+      selectable: true,
+      selectedStart: availCal.start,
+      selectedEnd: availCal.end,
+      onSelect: onAvailDaySelected,
+    });
+    const label = new Date(availCal.anchorYear, availCal.anchorMonth, 1);
+    const label2 = new Date(availCal.anchorYear, availCal.anchorMonth + 1, 1);
+    document.getElementById('avail-cal-label').textContent =
+      `${label.toLocaleString('en-GB', { month: 'long', year: 'numeric' })} – ${label2.toLocaleString('en-GB', { month: 'long', year: 'numeric' })}`;
+    updateAvailSelectionSummary();
+  }
+
+  function onAvailDaySelected(dateStr) {
+    if (!availCal.start || (availCal.start && availCal.end)) {
+      availCal.start = dateStr;
+      availCal.end = null;
+    } else if (dateStr > availCal.start) {
+      // Reject the range if it crosses an already-booked date.
+      const crossesBooked = availCal.ranges.some((r) => r.start < dateStr && r.end > availCal.start);
+      if (crossesBooked) {
+        availCal.start = dateStr;
+        availCal.end = null;
+      } else {
+        availCal.end = dateStr;
+      }
+    } else {
+      availCal.start = dateStr;
+      availCal.end = null;
+    }
+    drawAvailCalendar();
+  }
+
+  function updateAvailSelectionSummary() {
+    const summary = document.getElementById('avail-selection-summary');
+    const bookBtn = document.getElementById('avail-book-btn');
+    if (availCal.start && availCal.end) {
+      summary.textContent = fmtRange(availCal.start, availCal.end);
+      bookBtn.disabled = false;
+    } else if (availCal.start) {
+      summary.textContent = `Check-in: ${availCal.start} — now pick a check-out date`;
+      bookBtn.disabled = true;
+    } else {
+      summary.textContent = '';
+      bookBtn.disabled = true;
+    }
+  }
+
+  document.getElementById('avail-cal-prev').addEventListener('click', () => {
+    availCal.anchorMonth -= 1;
+    if (availCal.anchorMonth < 0) { availCal.anchorMonth = 11; availCal.anchorYear -= 1; }
+    drawAvailCalendar();
+  });
+  document.getElementById('avail-cal-next').addEventListener('click', () => {
+    availCal.anchorMonth += 1;
+    if (availCal.anchorMonth > 11) { availCal.anchorMonth = 0; availCal.anchorYear += 1; }
+    drawAvailCalendar();
+  });
+  document.getElementById('avail-reset-btn').addEventListener('click', () => {
+    availCal.start = null; availCal.end = null; drawAvailCalendar();
+  });
+  document.getElementById('avail-book-btn').addEventListener('click', () => {
+    onBookNowClick({ start: availCal.start, end: availCal.end });
+  });
+
+  (async function boot() {
+    await initSession();
+    await loadAvailCalendar();
+  })();
+</script>
+</body>
+</html>
