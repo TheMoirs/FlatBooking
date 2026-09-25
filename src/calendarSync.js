@@ -135,6 +135,10 @@ async function upsertGoogleCalendarEvent({
   const payload = {
     summary,
     description,
+    // endDate is the checkout day. Google's all-day events use an
+    // exclusive end date too, so this lines up directly: a 28th-30th
+    // booking (2 nights) shows as spanning the 28th and 29th, checkout on
+    // the 30th, and that day stays free for another guest to arrive.
     start: { date: startDate },
     end: { date: endDate },
     transparency: 'opaque',
@@ -161,18 +165,27 @@ async function upsertGoogleCalendarEvent({
   }
 }
 
+// Returns true if the event is confirmed gone from the calendar (deleted now,
+// or already gone), false if we couldn't reach Google or the delete failed —
+// callers use this to decide whether it's safe to forget the stored event id.
 async function deleteGoogleCalendarEvent(eventId) {
-  if (!eventId) return;
+  if (!eventId) return true;
   const calendarClient = await getGoogleCalendarClient();
-  if (!calendarClient) return;
+  if (!calendarClient) return false;
 
   try {
     await calendarClient.calendar.events.delete({
       calendarId: calendarClient.calendarId,
       eventId,
     });
+    return true;
   } catch (err) {
+    // 410/404 means the event is already gone (e.g. deleted by hand in
+    // Google Calendar) — that still counts as success for our purposes.
+    const code = err && (err.code || (err.response && err.response.status));
+    if (code === 404 || code === 410) return true;
     console.error('Google Calendar delete failed:', err.message || err);
+    return false;
   }
 }
 

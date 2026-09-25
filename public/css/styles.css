@@ -352,16 +352,11 @@ section.tight { padding: 48px 0; }
 .cal-grid .day.booked { background: var(--terracotta-dim); color: #7A3316; }
 .cal-grid .day.past { color: #C9C3B4; }
 .cal-grid .day.today { box-shadow: inset 0 0 0 2px var(--sun); font-weight: 700; }
-.cal-grid .day.selected-start {
+.cal-grid .day.selected-start,
+.cal-grid .day.selected-end {
   background: #F8E9B4;
   color: #4A2F00;
   box-shadow: inset 0 0 0 2px #D9A722;
-  font-weight: 700;
-}
-.cal-grid .day.selected-end {
-  background: #E6F1FF;
-  color: #153F72;
-  box-shadow: inset 0 0 0 2px #6EA7FF;
   font-weight: 700;
 }
 .cal-month-label { font-family: var(--serif); font-size: 1.15rem; margin-bottom: 10px; text-align: center; }

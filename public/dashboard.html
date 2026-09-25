@@ -69,12 +69,20 @@
           <input id="who-going" type="text" maxlength="120" placeholder="Ali & Dawn" />
         </div>
         <div class="field">
-          <label for="arrival-time">Arrival time at flat</label>
-          <input id="arrival-time" type="time" />
+          <label>Arrival time at flat</label>
+          <div class="radio-row">
+            <label><input type="radio" name="arrival-time" value="Morning" /> Morning</label>
+            <label><input type="radio" name="arrival-time" value="Afternoon" /> Afternoon</label>
+            <label><input type="radio" name="arrival-time" value="Evening" /> Evening</label>
+          </div>
         </div>
         <div class="field">
-          <label for="leave-time">Flat leave time</label>
-          <input id="leave-time" type="time" />
+          <label>Flat leave time</label>
+          <div class="radio-row">
+            <label><input type="radio" name="leave-time" value="Morning" /> Morning</label>
+            <label><input type="radio" name="leave-time" value="Afternoon" /> Afternoon</label>
+            <label><input type="radio" name="leave-time" value="Evening" /> Evening</label>
+          </div>
         </div>
 
         <div class="field">
@@ -207,7 +215,8 @@
     `).join('');
     list.querySelectorAll('.cancel-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
-        await Api.cancelBooking(btn.dataset.id);
+        const result = await Api.cancelBooking(btn.dataset.id);
+        if (result && result.google_calendar_warning) alert(result.google_calendar_warning);
         loadMyBookings();
       });
     });
@@ -235,7 +244,11 @@
       btn.addEventListener('click', async () => { await Api.authoriseBooking(btn.dataset.id); loadAllBookings(); });
     });
     list.querySelectorAll('.cancel-btn').forEach((btn) => {
-      btn.addEventListener('click', async () => { await Api.cancelBooking(btn.dataset.id); loadAllBookings(); });
+      btn.addEventListener('click', async () => {
+        const result = await Api.cancelBooking(btn.dataset.id);
+        if (result && result.google_calendar_warning) alert(result.google_calendar_warning);
+        loadAllBookings();
+      });
     });
   }
 
@@ -342,6 +355,8 @@
       const selectedMaster = document.querySelector('input[name="master-bedroom-config"]:checked')?.value || '';
       const selectedMiddle = document.querySelector('input[name="middle-bedroom-config"]:checked')?.value || '';
       const selectedFirst = document.querySelector('input[name="first-bedroom-config"]:checked')?.value || '';
+      const selectedArrival = document.querySelector('input[name="arrival-time"]:checked')?.value || '';
+      const selectedLeave = document.querySelector('input[name="leave-time"]:checked')?.value || '';
       const whoGoing = document.getElementById('who-going').value.trim();
       if (!whoGoing) {
         throw new Error('Who’s going? is required.');
@@ -351,8 +366,8 @@
         start_date: bookingCal.start,
         end_date: bookingCal.end,
         who_going: whoGoing,
-        arrival_time: document.getElementById('arrival-time').value || null,
-        departure_time: document.getElementById('leave-time').value || null,
+        arrival_time: selectedArrival || null,
+        departure_time: selectedLeave || null,
         master_bedroom_config: selectedMaster,
         middle_bedroom_config: selectedMiddle,
         first_bedroom_config: selectedFirst,
@@ -371,8 +386,8 @@
       }
       bookingCal.start = null; bookingCal.end = null;
       document.getElementById('who-going').value = '';
-      document.getElementById('arrival-time').value = '';
-      document.getElementById('leave-time').value = '';
+      document.querySelectorAll('input[name="arrival-time"]').forEach((el) => el.checked = false);
+      document.querySelectorAll('input[name="leave-time"]').forEach((el) => el.checked = false);
       document.querySelectorAll('input[name="master-bedroom-config"]').forEach((el) => el.checked = false);
       document.querySelectorAll('input[name="middle-bedroom-config"]').forEach((el) => el.checked = false);
       document.querySelectorAll('input[name="first-bedroom-config"]').forEach((el) => el.checked = false);

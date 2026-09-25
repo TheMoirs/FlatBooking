@@ -5,7 +5,10 @@ const { fetchExternalBusyRanges, upsertGoogleCalendarEvent, deleteGoogleCalendar
 
 const router = express.Router();
 
-// Ranges overlap if one starts before the other ends, on both sides.
+// end_date is the checkout day and is exclusive — someone can leave in the
+// morning and a different guest can arrive that same afternoon, so the
+// checkout day itself isn't treated as blocked. Two bookings overlap
+// whenever one starts before the other ends, on both sides.
 function overlaps(aStart, aEnd, bStart, bEnd) {
   return aStart < bEnd && bStart < aEnd;
 }
@@ -288,17 +291,35 @@ router.post('/bookings/:id/cancel', attachUser, requireAuth, async (req, res) =>
     [req.params.id]
   );
 
-  if (result.rows[0]?.google_event_id) {
-    await deleteGoogleCalendarEvent(result.rows[0].google_event_id);
+  const booking = result.rows[0];
+  let googleCalendarRemoved = true;
+  if (booking?.google_event_id) {
+    googleCalendarRemoved = await deleteGoogleCalendarEvent(booking.google_event_id);
+    if (googleCalendarRemoved) {
+      // Only forget the event id once we know it's actually gone, so a
+      // failed delete doesn't leave an orphaned event nobody knows about.
+      await query('UPDATE bookings SET google_event_id = NULL WHERE id = $1', [booking.id]);
+      booking.google_event_id = null;
+    }
   }
 
-  res.json({ booking: result.rows[0] });
+  res.json({
+    booking,
+    google_calendar_removed: googleCalendarRemoved,
+    google_calendar_warning: googleCalendarRemoved
+      ? null
+      : 'Booking cancelled, but removing it from Google Calendar failed. Check the server logs and remove the event manually if needed.',
+  });
 });
 
 function addMonths(dateStr, n) {
-  const d = new Date(dateStr);
-  d.setMonth(d.getMonth() + n);
-  return d.toISOString().slice(0, 10);
+  // Stay in UTC throughout — mixing a local setter like setMonth() with
+  // toISOString()'s UTC output is the same class of bug that caused the
+  // earlier off-by-one-day date issue.
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCMonth(dt.getUTCMonth() + n);
+  return dt.toISOString().slice(0, 10);
 }
 
 function toDateOnlyValue(value) {
