@@ -48,12 +48,18 @@ function renderMonthGrid(year, month, ranges = [], options = {}) {
 
     if (options.selectable && dateStr >= today && !occupied.length) {
       classes.push('selectable');
+      let isSelectionPart = false;
       if (options.selectedStart && options.selectedEnd &&
           dateStr >= options.selectedStart && dateStr < options.selectedEnd) {
         classes.push('in-range');
+        isSelectionPart = true;
       }
-      if (options.selectedStart && dateStr === options.selectedStart) classes.push('selected-start');
-      if (options.selectedEnd && dateStr === options.selectedEnd) classes.push('selected-end');
+      if (options.selectedStart && dateStr === options.selectedStart) { classes.push('selected-start'); isSelectionPart = true; }
+      if (options.selectedEnd && dateStr === options.selectedEnd) { classes.push('selected-end'); isSelectionPart = true; }
+      // Lets a caller (the edit-booking calendar) colour the selected range
+      // differently depending on whether it's still the booking's original
+      // dates or a newly-picked replacement — see drawEditCalendar().
+      if (isSelectionPart && options.selectionVariant) classes.push(`variant-${options.selectionVariant}`);
       html += `<div class="${classes.join(' ')}" data-date="${dateStr}" role="button" tabindex="0"><span class="date-number">${day}</span></div>`;
     } else if (occupied.length) {
       const hoverText = description ? description.replace(/\n/g, ' • ') : 'Booked';

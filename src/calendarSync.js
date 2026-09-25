@@ -2,7 +2,7 @@ const ical = require('node-ical');
 const { google } = require('googleapis');
 const { query } = require('./db');
 
-function buildGoogleCalendarDescription({ guestName, status, arrivalTime, departureTime, masterBedroomConfig, middleBedroomConfig, firstBedroomConfig, notes }) {
+function buildGoogleCalendarDescription({ guestName, status, arrivalTime, departureTime, masterBedroomConfig, middleBedroomConfig, firstBedroomConfig, sofaBedRequired, notes }) {
   const lines = [
     `Guest: ${guestName || 'Guest'}`,
     `Status: ${status || 'provisional'}`,
@@ -12,6 +12,7 @@ function buildGoogleCalendarDescription({ guestName, status, arrivalTime, depart
   if (masterBedroomConfig) lines.push(`Master bedroom configuration: ${masterBedroomConfig}`);
   if (middleBedroomConfig) lines.push(`Middle bedroom configuration: ${middleBedroomConfig}`);
   if (firstBedroomConfig) lines.push(`1st bedroom configuration: ${firstBedroomConfig}`);
+  if (sofaBedRequired) lines.push(`Sofa bed required: ${sofaBedRequired}`);
   if (notes) lines.push(`Notes: ${notes}`);
   return lines.join('\n');
 }
@@ -115,6 +116,7 @@ async function upsertGoogleCalendarEvent({
   masterBedroomConfig,
   middleBedroomConfig,
   firstBedroomConfig,
+  sofaBedRequired,
   notes,
 }) {
   const calendarClient = await getGoogleCalendarClient();
@@ -129,6 +131,7 @@ async function upsertGoogleCalendarEvent({
     masterBedroomConfig,
     middleBedroomConfig,
     firstBedroomConfig,
+    sofaBedRequired,
     notes,
   });
 

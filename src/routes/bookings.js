@@ -29,7 +29,8 @@ router.get('/availability', async (req, res) => {
   const internal = await query(
     `SELECT b.id, b.start_date, b.end_date, b.status, b.google_event_id, u.name AS guest_name,
             b.arrival_time, b.departure_time, b.master_bedroom_config,
-            b.middle_bedroom_config, b.first_bedroom_config, b.notes, b.calendar_description
+            b.middle_bedroom_config, b.first_bedroom_config, b.sofa_bed_required,
+            b.notes, b.calendar_description
      FROM bookings b
      JOIN users u ON u.id = b.user_id
      WHERE b.status <> 'cancelled' AND b.start_date < $2 AND b.end_date > $1
@@ -50,6 +51,7 @@ router.get('/availability', async (req, res) => {
       masterBedroomConfig: b.master_bedroom_config,
       middleBedroomConfig: b.middle_bedroom_config,
       firstBedroomConfig: b.first_bedroom_config,
+      sofaBedRequired: b.sofa_bed_required,
       notes: b.notes,
       calendarDescription: b.calendar_description,
     }),
@@ -121,7 +123,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
     const result = await query(
       `SELECT id, start_date, end_date, status, who_going, notes, created_at, source,
               arrival_time, departure_time,
-              master_bedroom_config, middle_bedroom_config, first_bedroom_config
+              master_bedroom_config, middle_bedroom_config, first_bedroom_config, sofa_bed_required
        FROM bookings WHERE user_id = $1 AND ($2::boolean OR end_date >= $3)
        ORDER BY start_date DESC`,
       [req.user.id, includeOld, today]
@@ -134,7 +136,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
   const dbResult = await query(
     `SELECT b.id, b.start_date, b.end_date, b.status, b.who_going, b.notes, b.created_at, b.source,
             b.arrival_time, b.departure_time,
-            b.master_bedroom_config, b.middle_bedroom_config, b.first_bedroom_config,
+            b.master_bedroom_config, b.middle_bedroom_config, b.first_bedroom_config, b.sofa_bed_required,
             u.name AS guest_name, u.email AS guest_email, u.phone AS guest_phone,
             b.calendar_description
      FROM bookings b JOIN users u ON u.id = b.user_id
@@ -246,6 +248,7 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
     master_bedroom_config,
     middle_bedroom_config,
     first_bedroom_config,
+    sofa_bed_required,
   } = req.body || {};
   if (!start_date || !end_date) {
     return res.status(400).json({ error: 'Start and end dates are required.' });
@@ -279,15 +282,16 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
     masterBedroomConfig: master_bedroom_config,
     middleBedroomConfig: middle_bedroom_config,
     firstBedroomConfig: first_bedroom_config,
+    sofaBedRequired: sofa_bed_required,
   });
 
   const result = await query(
     `INSERT INTO bookings (
        user_id, start_date, end_date, status, who_going,
        arrival_time, departure_time,
-       master_bedroom_config, middle_bedroom_config, first_bedroom_config,
+       master_bedroom_config, middle_bedroom_config, first_bedroom_config, sofa_bed_required,
        notes, calendar_description
-     ) VALUES ($1, $2, $3, 'provisional', $4, $5, $6, $7, $8, $9, $10, $11)
+     ) VALUES ($1, $2, $3, 'provisional', $4, $5, $6, $7, $8, $9, $10, $11, $12)
      RETURNING id, start_date, end_date, status, who_going, notes, calendar_description, created_at`,
     [
       req.user.id,
@@ -299,6 +303,7 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
       master_bedroom_config || null,
       middle_bedroom_config || null,
       first_bedroom_config || null,
+      sofa_bed_required || null,
       notes || null,
       calendarDescription || null,
     ]
@@ -317,6 +322,7 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
     masterBedroomConfig: master_bedroom_config,
     middleBedroomConfig: middle_bedroom_config,
     firstBedroomConfig: first_bedroom_config,
+    sofaBedRequired: sofa_bed_required,
     notes,
   });
 
@@ -362,6 +368,7 @@ router.post('/bookings/:id/authorise', attachUser, requireAdmin, async (req, res
       masterBedroomConfig: row.master_bedroom_config,
       middleBedroomConfig: row.middle_bedroom_config,
       firstBedroomConfig: row.first_bedroom_config,
+      sofaBedRequired: row.sofa_bed_required,
       notes: row.notes,
     });
   }
@@ -390,6 +397,7 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
     master_bedroom_config,
     middle_bedroom_config,
     first_bedroom_config,
+    sofa_bed_required,
   } = req.body || {};
   if (!start_date || !end_date) {
     return res.status(400).json({ error: 'Start and end dates are required.' });
@@ -423,6 +431,7 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
     masterBedroomConfig: master_bedroom_config,
     middleBedroomConfig: middle_bedroom_config,
     firstBedroomConfig: first_bedroom_config,
+    sofaBedRequired: sofa_bed_required,
   });
 
   const result = await query(
@@ -430,7 +439,8 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
        start_date = $2, end_date = $3, who_going = $4,
        arrival_time = $5, departure_time = $6,
        master_bedroom_config = $7, middle_bedroom_config = $8, first_bedroom_config = $9,
-       notes = $10, calendar_description = $11
+       sofa_bed_required = $10,
+       notes = $11, calendar_description = $12
      WHERE id = $1
      RETURNING id, start_date, end_date, status, who_going, notes, calendar_description, google_event_id, created_at`,
     [
@@ -443,6 +453,7 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
       master_bedroom_config || null,
       middle_bedroom_config || null,
       first_bedroom_config || null,
+      sofa_bed_required || null,
       notes || null,
       calendarDescription || null,
     ]
@@ -460,6 +471,7 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
     masterBedroomConfig: master_bedroom_config,
     middleBedroomConfig: middle_bedroom_config,
     firstBedroomConfig: first_bedroom_config,
+    sofaBedRequired: sofa_bed_required,
     notes,
   });
 
@@ -549,6 +561,7 @@ function buildCalendarDescription({
   masterBedroomConfig,
   middleBedroomConfig,
   firstBedroomConfig,
+  sofaBedRequired,
 }) {
   const lines = [];
   if (whoGoing && String(whoGoing).trim()) {
@@ -559,6 +572,7 @@ function buildCalendarDescription({
   if (masterBedroomConfig) lines.push(`Master bedroom: ${masterBedroomConfig}`);
   if (middleBedroomConfig) lines.push(`Middle bedroom: ${middleBedroomConfig}`);
   if (firstBedroomConfig) lines.push(`1st bedroom: ${firstBedroomConfig}`);
+  if (sofaBedRequired) lines.push(`Sofa bed required: ${sofaBedRequired}`);
   if (notes) lines.push(`Notes: ${notes}`);
   return lines.join('\n');
 }
@@ -571,6 +585,7 @@ function formatBookingDescription({
   masterBedroomConfig,
   middleBedroomConfig,
   firstBedroomConfig,
+  sofaBedRequired,
   notes,
   calendarDescription,
 }) {
@@ -585,6 +600,7 @@ function formatBookingDescription({
   if (masterBedroomConfig) lines.push(`Master bedroom: ${masterBedroomConfig}`);
   if (middleBedroomConfig) lines.push(`Middle bedroom: ${middleBedroomConfig}`);
   if (firstBedroomConfig) lines.push(`1st bedroom: ${firstBedroomConfig}`);
+  if (sofaBedRequired) lines.push(`Sofa bed required: ${sofaBedRequired}`);
   if (notes) lines.push(`Notes: ${notes}`);
   return lines.join('\n');
 }

@@ -88,7 +88,7 @@
         <div class="field">
           <label>Master bedroom configuration</label>
           <div class="radio-row">
-            <label><input type="radio" name="master-bedroom-config" value="Double" /> Double</label>
+            <label><input type="radio" name="master-bedroom-config" value="Double" checked /> Double</label>
             <label><input type="radio" name="master-bedroom-config" value="Twin Singles" /> Twin Singles</label>
           </div>
         </div>
@@ -97,7 +97,7 @@
           <div class="radio-row">
             <label><input type="radio" name="middle-bedroom-config" value="Double" /> Double</label>
             <label><input type="radio" name="middle-bedroom-config" value="Twin Singles" /> Twin Singles</label>
-            <label><input type="radio" name="middle-bedroom-config" value="Not Required" /> Not Required</label>
+            <label><input type="radio" name="middle-bedroom-config" value="Not Required" checked /> Not Required</label>
           </div>
         </div>
         <div class="field">
@@ -105,7 +105,14 @@
           <div class="radio-row">
             <label><input type="radio" name="first-bedroom-config" value="Double" /> Double</label>
             <label><input type="radio" name="first-bedroom-config" value="Twin Singles" /> Twin Singles</label>
-            <label><input type="radio" name="first-bedroom-config" value="Not Required" /> Not Required</label>
+            <label><input type="radio" name="first-bedroom-config" value="Not Required" checked /> Not Required</label>
+          </div>
+        </div>
+        <div class="field">
+          <label>Sofa bed required?</label>
+          <div class="radio-row">
+            <label><input type="radio" name="sofa-bed-required" value="Yes" /> Yes</label>
+            <label><input type="radio" name="sofa-bed-required" value="No" checked /> No</label>
           </div>
         </div>
 
@@ -172,6 +179,8 @@
       <div class="calendar-legend">
         <span><span class="swatch available"></span> Available</span>
         <span><span class="swatch booked"></span> Booked</span>
+        <span><span class="swatch current-dates"></span> Current dates</span>
+        <span><span class="swatch new-dates"></span> New dates</span>
       </div>
     </div>
     <p id="edit-selection-summary" style="font-weight:600"></p>
@@ -217,6 +226,13 @@
         <label><input type="radio" name="edit-first-bedroom-config" value="Double" /> Double</label>
         <label><input type="radio" name="edit-first-bedroom-config" value="Twin Singles" /> Twin Singles</label>
         <label><input type="radio" name="edit-first-bedroom-config" value="Not Required" /> Not Required</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>Sofa bed required?</label>
+      <div class="radio-row">
+        <label><input type="radio" name="edit-sofa-bed-required" value="Yes" /> Yes</label>
+        <label><input type="radio" name="edit-sofa-bed-required" value="No" /> No</label>
       </div>
     </div>
     <div class="field">
@@ -476,6 +492,7 @@
       const selectedMaster = document.querySelector('input[name="master-bedroom-config"]:checked')?.value || '';
       const selectedMiddle = document.querySelector('input[name="middle-bedroom-config"]:checked')?.value || '';
       const selectedFirst = document.querySelector('input[name="first-bedroom-config"]:checked')?.value || '';
+      const selectedSofaBed = document.querySelector('input[name="sofa-bed-required"]:checked')?.value || '';
       const selectedArrival = document.querySelector('input[name="arrival-time"]:checked')?.value || '';
       const selectedLeave = document.querySelector('input[name="leave-time"]:checked')?.value || '';
       const whoGoing = document.getElementById('who-going').value.trim();
@@ -492,6 +509,7 @@
         master_bedroom_config: selectedMaster,
         middle_bedroom_config: selectedMiddle,
         first_bedroom_config: selectedFirst,
+        sofa_bed_required: selectedSofaBed,
         notes: document.getElementById('booking-notes').value.trim(),
       });
       if (result && result.google_calendar_updated) {
@@ -509,9 +527,12 @@
       document.getElementById('who-going').value = '';
       document.querySelectorAll('input[name="arrival-time"]').forEach((el) => el.checked = false);
       document.querySelectorAll('input[name="leave-time"]').forEach((el) => el.checked = false);
-      document.querySelectorAll('input[name="master-bedroom-config"]').forEach((el) => el.checked = false);
-      document.querySelectorAll('input[name="middle-bedroom-config"]').forEach((el) => el.checked = false);
-      document.querySelectorAll('input[name="first-bedroom-config"]').forEach((el) => el.checked = false);
+      // Back to the usual setup (master double, others not required, no sofa
+      // bed) rather than blank, since that's what most bookings need.
+      setRadioValue('master-bedroom-config', 'Double');
+      setRadioValue('middle-bedroom-config', 'Not Required');
+      setRadioValue('first-bedroom-config', 'Not Required');
+      setRadioValue('sofa-bed-required', 'No');
       document.getElementById('booking-notes').value = '';
       loadBookingCalendar();
     } catch (e) {
@@ -522,7 +543,7 @@
 
   /* -------- Edit booking modal -------- */
 
-  let editCal = { anchorYear: new Date().getFullYear(), anchorMonth: new Date().getMonth(), ranges: [], start: null, end: null, bookingId: null, reloadFn: null };
+  let editCal = { anchorYear: new Date().getFullYear(), anchorMonth: new Date().getMonth(), ranges: [], start: null, end: null, changed: false, bookingId: null, reloadFn: null };
 
   function setRadioValue(name, value) {
     document.querySelectorAll(`input[name="${name}"]`).forEach((el) => { el.checked = (el.value === value); });
@@ -534,6 +555,7 @@
     editCal.reloadFn = reloadFn;
     editCal.start = booking.start_date;
     editCal.end = booking.end_date;
+    editCal.changed = false;
     const anchor = new Date(booking.start_date);
     editCal.anchorYear = anchor.getUTCFullYear();
     editCal.anchorMonth = anchor.getUTCMonth();
@@ -546,6 +568,7 @@
     setRadioValue('edit-master-bedroom-config', booking.master_bedroom_config || '');
     setRadioValue('edit-middle-bedroom-config', booking.middle_bedroom_config || '');
     setRadioValue('edit-first-bedroom-config', booking.first_bedroom_config || '');
+    setRadioValue('edit-sofa-bed-required', booking.sofa_bed_required || '');
 
     // Fresh busy ranges, minus this booking's own dates — otherwise its own
     // stay would show up as "booked" and block editing itself.
@@ -568,6 +591,7 @@
       selectable: true,
       selectedStart: editCal.start,
       selectedEnd: editCal.end,
+      selectionVariant: editCal.changed ? 'new' : 'existing',
       onSelect: onEditDaySelected,
     });
     const label = new Date(editCal.anchorYear, editCal.anchorMonth, 1);
@@ -578,6 +602,7 @@
   }
 
   function onEditDaySelected(dateStr) {
+    editCal.changed = true;
     if (!editCal.start || (editCal.start && editCal.end)) {
       editCal.start = dateStr;
       editCal.end = null;
@@ -629,6 +654,7 @@
       const selectedMaster = document.querySelector('input[name="edit-master-bedroom-config"]:checked')?.value || '';
       const selectedMiddle = document.querySelector('input[name="edit-middle-bedroom-config"]:checked')?.value || '';
       const selectedFirst = document.querySelector('input[name="edit-first-bedroom-config"]:checked')?.value || '';
+      const selectedSofaBed = document.querySelector('input[name="edit-sofa-bed-required"]:checked')?.value || '';
 
       const result = await Api.editBooking(editCal.bookingId, {
         start_date: editCal.start,
@@ -639,6 +665,7 @@
         master_bedroom_config: selectedMaster,
         middle_bedroom_config: selectedMiddle,
         first_bedroom_config: selectedFirst,
+        sofa_bed_required: selectedSofaBed,
         notes: document.getElementById('edit-notes').value.trim(),
       });
       if (result && result.google_calendar_warning) alert(result.google_calendar_warning);

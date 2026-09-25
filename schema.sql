@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   master_bedroom_config     TEXT CHECK (master_bedroom_config IN ('Double', 'Twin Singles')),
   middle_bedroom_config     TEXT CHECK (middle_bedroom_config IN ('Double', 'Twin Singles', 'Not Required')),
   first_bedroom_config      TEXT CHECK (first_bedroom_config IN ('Double', 'Twin Singles', 'Not Required')),
+  sofa_bed_required         TEXT CHECK (sofa_bed_required IN ('Yes', 'No')),
   notes                     TEXT,
   calendar_description      TEXT,
   google_event_id           TEXT,
@@ -59,6 +60,11 @@ ALTER TABLE bookings ADD CONSTRAINT bookings_middle_bedroom_config_check
 ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_first_bedroom_config_check;
 ALTER TABLE bookings ADD CONSTRAINT bookings_first_bedroom_config_check
   CHECK (first_bedroom_config IN ('Double', 'Twin Singles', 'Not Required'));
+
+-- "sofa_bed_required" was added after the table already existed in some
+-- deployments — this backfills it in on existing databases; a no-op on a
+-- fresh install where the CREATE TABLE above already included it.
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS sofa_bed_required TEXT CHECK (sofa_bed_required IN ('Yes', 'No'));
 
 CREATE INDEX IF NOT EXISTS idx_bookings_dates ON bookings (start_date, end_date) WHERE status <> 'cancelled';
 

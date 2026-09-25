@@ -17,6 +17,9 @@
   --terracotta-dim: #E8C9AF;
   --sun: #E3A23C;
   --sage: #6C8C6A;
+  --sea-dim: #C9DEE6;
+  --red: #B23A2E;
+  --red-dim: #F0CFC8;
   --line: #E3DACB;
   --white: #FFFFFF;
 
@@ -366,11 +369,31 @@ section.tight { padding: 48px 0; }
 .swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
 .swatch.available { background: #EEF4EF; border: 1px solid var(--sage); }
 .swatch.booked { background: var(--terracotta-dim); border: 1px solid var(--terracotta); }
+.swatch.current-dates { background: var(--red-dim); border: 1px solid var(--red); }
+.swatch.new-dates { background: var(--sea-dim); border: 1px solid var(--sea); }
 
 /* selectable mode (booking) */
 .cal-grid .day.selectable { cursor: pointer; }
 .cal-grid .day.selectable:hover { box-shadow: inset 0 0 0 2px var(--sea); }
 .cal-grid .day.in-range { background: var(--terracotta-dim); color: #7A3316; font-weight: 700; }
+
+/* Edit-booking calendar only: the booking's original dates show red until
+   a new range is picked, at which point the new selection shows blue. The
+   availability views never pass selectionVariant, so they're unaffected. */
+.cal-grid .day.selected-start.variant-existing,
+.cal-grid .day.selected-end.variant-existing,
+.cal-grid .day.in-range.variant-existing {
+  background: var(--red-dim);
+  color: var(--red);
+  box-shadow: inset 0 0 0 2px var(--red);
+}
+.cal-grid .day.selected-start.variant-new,
+.cal-grid .day.selected-end.variant-new,
+.cal-grid .day.in-range.variant-new {
+  background: var(--sea-dim);
+  color: var(--sea-deep);
+  box-shadow: inset 0 0 0 2px var(--sea);
+}
 
 /* ---------------- Costs ---------------- */
 
