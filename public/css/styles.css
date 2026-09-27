@@ -176,6 +176,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   min-height: min(78vh, 640px);
   display: flex;
   align-items: flex-start;
+  /* The generic `section { padding: 72px 0; }` rule below would otherwise
+     apply here too (.hero is a <section>), pushing .hero-inner down from
+     the top of the image by 72px regardless of align-items — .hero-inner's
+     own padding is what should control the text's spacing from the edges. */
+  padding: 0;
   color: var(--white);
   /* Darkest near the top now, for legibility behind the text block, fading
      out toward the bottom of the image (mirrored from the old bottom-
