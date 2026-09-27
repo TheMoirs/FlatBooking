@@ -78,9 +78,9 @@
     const leaveLine = fmtDateTimeLine(b.end_date, b.departure_time);
     if (arrivalLine) parts.push(`Arrival: ${arrivalLine}`);
     if (leaveLine) parts.push(`Leave: ${leaveLine}`);
-    if (b.master_bedroom_config) parts.push(`Master: ${b.master_bedroom_config}`);
-    if (b.middle_bedroom_config) parts.push(`Middle: ${b.middle_bedroom_config}`);
-    if (b.first_bedroom_config) parts.push(`1st: ${b.first_bedroom_config}`);
+    if (b.master_bedroom_config) parts.push(`Master Bedroom: ${b.master_bedroom_config}`);
+    if (b.middle_bedroom_config) parts.push(`Middle Bedroom: ${b.middle_bedroom_config}`);
+    if (b.first_bedroom_config) parts.push(`1st Bedroom: ${b.first_bedroom_config}`);
     if (b.sofa_bed_required) parts.push(`Sofa bed: ${b.sofa_bed_required}`);
     return parts.map((p) => escapeHtml(p)).join('<br>');
   }
