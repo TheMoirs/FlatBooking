@@ -376,10 +376,13 @@
     const fee = bedroomsUsed(bedroomConfig) >= 2 ? cleaningFee2Rooms : cleaningFee1Room;
     return fee === null ? null : fee;
   }
-  // Room configuration line for a booking row — master/middle/1st bedroom
-  // plus sofa bed, one item per line. Returns '' if none of it was set.
+  // Stay-details line for a booking row — arrival/leave times, then
+  // master/middle/1st bedroom, then sofa bed — one item per line. Returns
+  // '' if none of it was set.
   function fmtRoomConfig(b) {
     const parts = [];
+    if (b.arrival_time) parts.push(`Arrival: ${b.arrival_time}`);
+    if (b.departure_time) parts.push(`Leave: ${b.departure_time}`);
     if (b.master_bedroom_config) parts.push(`Master: ${b.master_bedroom_config}`);
     if (b.middle_bedroom_config) parts.push(`Middle: ${b.middle_bedroom_config}`);
     if (b.first_bedroom_config) parts.push(`1st: ${b.first_bedroom_config}`);

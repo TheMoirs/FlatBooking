@@ -57,6 +57,8 @@
   // string), since callers render it directly.
   function fmtRoomConfig(b) {
     const parts = [];
+    if (b.arrival_time) parts.push(`Arrival: ${b.arrival_time}`);
+    if (b.departure_time) parts.push(`Leave: ${b.departure_time}`);
     if (b.master_bedroom_config) parts.push(`Master: ${b.master_bedroom_config}`);
     if (b.middle_bedroom_config) parts.push(`Middle: ${b.middle_bedroom_config}`);
     if (b.first_bedroom_config) parts.push(`1st: ${b.first_bedroom_config}`);
