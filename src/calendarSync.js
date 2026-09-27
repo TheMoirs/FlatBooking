@@ -12,15 +12,24 @@ function fmtDateHuman(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// Combines a date with its time-of-day into one line ("27 Sep 2026
+// (Afternoon)") rather than showing the date and time on separate lines —
+// falls back to whichever half is actually available.
+function fmtDateTimeLine(dateStr, time) {
+  const datePart = fmtDateHuman(dateStr);
+  if (datePart && time) return `${datePart} (${time})`;
+  return datePart || time || null;
+}
+
 function buildGoogleCalendarDescription({ guestName, status, arrivalTime, departureTime, startDate, endDate, masterBedroomConfig, middleBedroomConfig, firstBedroomConfig, sofaBedRequired, notes }) {
   const lines = [
     `Guest: ${guestName || 'Guest'}`,
     `Status: ${status || 'provisional'}`,
   ];
-  if (arrivalTime) lines.push(`Arrival time at flat: ${arrivalTime}`);
-  if (departureTime) lines.push(`Flat leave time: ${departureTime}`);
-  if (startDate) lines.push(`Arrival date: ${fmtDateHuman(startDate)}`);
-  if (endDate) lines.push(`Leave date: ${fmtDateHuman(endDate)}`);
+  const arrivalLine = fmtDateTimeLine(startDate, arrivalTime);
+  const leaveLine = fmtDateTimeLine(endDate, departureTime);
+  if (arrivalLine) lines.push(`Arrival: ${arrivalLine}`);
+  if (leaveLine) lines.push(`Leave: ${leaveLine}`);
   if (masterBedroomConfig) lines.push(`Master bedroom configuration: ${masterBedroomConfig}`);
   if (middleBedroomConfig) lines.push(`Middle bedroom configuration: ${middleBedroomConfig}`);
   if (firstBedroomConfig) lines.push(`1st bedroom configuration: ${firstBedroomConfig}`);

@@ -376,13 +376,32 @@
     const fee = bedroomsUsed(bedroomConfig) >= 2 ? cleaningFee2Rooms : cleaningFee1Room;
     return fee === null ? null : fee;
   }
-  // Stay-details line for a booking row — arrival/leave times, then
-  // master/middle/1st bedroom, then sofa bed — one item per line. Returns
-  // '' if none of it was set.
+  // 'YYYY-MM-DD' -> '27 Sep 2026', built from plain Y/M/D components (never
+  // parsed as a UTC instant) so it can't drift a day either way — same
+  // approach as the equivalent helper in calendarSync.js.
+  function fmtDateHuman(dateStr) {
+    if (!dateStr) return null;
+    const [y, m, d] = String(dateStr).split('-').map(Number);
+    if (!y || !m || !d) return dateStr;
+    return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  // Combines a date with its time-of-day into one line ("27 Sep 2026
+  // (Afternoon)") rather than showing them separately — same layout used in
+  // the Google Calendar description.
+  function fmtDateTimeLine(dateStr, time) {
+    const datePart = fmtDateHuman(dateStr);
+    if (datePart && time) return `${datePart} (${time})`;
+    return datePart || time || null;
+  }
+  // Stay-details line for a booking row — arrival/leave (date + time
+  // together), then master/middle/1st bedroom, then sofa bed — one item
+  // per line. Returns '' if none of it was set.
   function fmtRoomConfig(b) {
     const parts = [];
-    if (b.arrival_time) parts.push(`Arrival: ${b.arrival_time}`);
-    if (b.departure_time) parts.push(`Leave: ${b.departure_time}`);
+    const arrivalLine = fmtDateTimeLine(b.start_date, b.arrival_time);
+    const leaveLine = fmtDateTimeLine(b.end_date, b.departure_time);
+    if (arrivalLine) parts.push(`Arrival: ${arrivalLine}`);
+    if (leaveLine) parts.push(`Leave: ${leaveLine}`);
     if (b.master_bedroom_config) parts.push(`Master: ${b.master_bedroom_config}`);
     if (b.middle_bedroom_config) parts.push(`Middle: ${b.middle_bedroom_config}`);
     if (b.first_bedroom_config) parts.push(`1st: ${b.first_bedroom_config}`);
