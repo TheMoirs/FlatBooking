@@ -17,8 +17,27 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+// SSL is controlled explicitly below via the `ssl` option, so a `sslmode=`
+// query param in the connection string (Neon's URLs include one by default)
+// is redundant — and it's what triggers pg's "SSL modes 'prefer', 'require',
+// and 'verify-ca' are treated as aliases..." deprecation warning on every
+// startup. Stripping it here silences that noise without changing anything
+// about how we actually connect.
+function withoutSslModeParam(connectionString) {
+  if (!connectionString) return connectionString;
+  try {
+    const url = new URL(connectionString);
+    url.searchParams.delete('sslmode');
+    return url.toString();
+  } catch (err) {
+    // Not a parseable URL (e.g. malformed) — leave it as-is and let `pg`
+    // surface whatever error it would have anyway.
+    return connectionString;
+  }
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: withoutSslModeParam(process.env.DATABASE_URL),
   ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('localhost')
     ? false
     : { rejectUnauthorized: false },
