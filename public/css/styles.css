@@ -190,17 +190,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   background-position: center;
 }
 .hero-inner {
-  padding: 56px 24px 64px;
+  padding: 28px 24px 64px;
   max-width: 1120px;
   margin: 0 auto;
   width: 100%;
-}
-.hero-eyebrow {
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 1.15rem;
-  color: var(--sun);
-  margin-bottom: 6px;
 }
 .hero h1 { color: var(--white); max-width: 16ch; }
 .hero .lede { color: #EAE2D3; font-size: 1.15rem; max-width: 46ch; }
