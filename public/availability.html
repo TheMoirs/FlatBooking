@@ -20,7 +20,8 @@
 
 <div class="container" style="padding:48px 24px 80px">
   <h1 style="margin-bottom:8px">Availability</h1>
-  <p style="color:var(--ink-soft);margin-bottom:28px">Pick a check-in date, then a check-out date from the available (unshaded) days.</p>
+  <p style="color:var(--ink-soft);margin-bottom:8px">Pick a check-in date, then a check-out date from the available (unshaded) days.</p>
+  <p id="avail-login-note" style="display:none;color:var(--ink-soft);font-size:0.9rem;margin-bottom:28px"><a href="#" id="avail-login-link">Log in</a> to book these dates.</p>
 
   <div class="calendar-card" style="max-width:760px">
     <div class="calendar-toolbar">
@@ -33,7 +34,8 @@
     <div class="calendar-months" id="avail-cal-months"></div>
     <div class="calendar-legend">
       <span><span class="swatch available"></span> Available</span>
-      <span><span class="swatch booked"></span> Booked</span>
+      <span><span class="swatch confirmed"></span> Confirmed</span>
+      <span><span class="swatch provisional"></span> Provisional</span>
     </div>
   </div>
 
@@ -42,7 +44,6 @@
     <p id="avail-selection-summary" style="font-weight:600"></p>
     <button class="btn btn-primary" id="avail-book-btn" disabled>Book these dates</button>
     <button class="btn btn-ghost btn-small" id="avail-reset-btn" style="margin-left:8px">Clear selection</button>
-    <p id="avail-login-note" style="display:none;color:var(--ink-soft);font-size:0.9rem">Log in to book these dates.</p>
   </div>
 </div>
 
@@ -153,6 +154,10 @@
   });
   document.getElementById('avail-book-btn').addEventListener('click', () => {
     onBookNowClick({ start: availCal.start, end: availCal.end });
+  });
+  document.getElementById('avail-login-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    openAuthModal('login');
   });
 
   (async function boot() {

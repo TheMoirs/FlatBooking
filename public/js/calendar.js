@@ -41,8 +41,14 @@ function renderMonthGrid(year, month, ranges = [], options = {}) {
     const description = occupied[0] && occupied[0].description ? occupied[0].description : null;
     const classes = ['day'];
     if (dateStr < today) classes.push('past');
-    else if (occupied.length) classes.push('booked');
-    else classes.push('available');
+    else if (occupied.length) {
+      classes.push('booked');
+      // Confirmed and provisional bookings get different shading — see
+      // .cal-grid .day.booked.status-* below. Falls back to the plain
+      // "booked" look for anything with no recognised status.
+      const status = occupied[0].status;
+      if (status === 'confirmed' || status === 'provisional') classes.push(`status-${status}`);
+    } else classes.push('available');
     if (dateStr === today) classes.push('today');
     if (options.selectedStart && dateStr === options.selectedStart) classes.push('selected-start');
 
