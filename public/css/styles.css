@@ -195,8 +195,17 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   margin: 0 auto;
   width: 100%;
 }
-.hero h1 { color: var(--white); max-width: 16ch; }
-.hero .lede { color: #EAE2D3; font-size: 1.15rem; max-width: 46ch; }
+.hero h1 { color: var(--white); max-width: 34ch; }
+.hero .lede {
+  color: var(--white);
+  font-size: 1.15rem;
+  max-width: 46ch;
+  /* A solid-ish backing so the text stays readable over busier parts of
+     the photo, rather than relying on the overlay gradient alone. */
+  background: rgba(22, 60, 76, 0.72);
+  padding: 14px 18px;
+  border-radius: var(--radius);
+}
 .hero-actions { display: flex; gap: 14px; margin-top: 22px; flex-wrap: wrap; }
 
 /* ---------------- Sections ---------------- */
