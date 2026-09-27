@@ -376,6 +376,16 @@
     const fee = bedroomsUsed(bedroomConfig) >= 2 ? cleaningFee2Rooms : cleaningFee1Room;
     return fee === null ? null : fee;
   }
+  // Room configuration line for a booking row — master/middle/1st bedroom
+  // plus sofa bed, one item per line. Returns '' if none of it was set.
+  function fmtRoomConfig(b) {
+    const parts = [];
+    if (b.master_bedroom_config) parts.push(`Master: ${b.master_bedroom_config}`);
+    if (b.middle_bedroom_config) parts.push(`Middle: ${b.middle_bedroom_config}`);
+    if (b.first_bedroom_config) parts.push(`1st: ${b.first_bedroom_config}`);
+    if (b.sofa_bed_required) parts.push(`Sofa bed: ${b.sofa_bed_required}`);
+    return parts.map((p) => escapeHtml(p)).join('<br>');
+  }
   // bedroomConfig is optional — {master, middle, first} — and only needed
   // to work out the cleaning charge; without it (or without rates set up
   // yet) the line just stops after whichever figures are available.
@@ -427,8 +437,8 @@
     if (e.target === document.getElementById('details-modal')) closeDetailsModal();
   });
 
-  async function confirmAndCancel(id, reloadFn) {
-    const ok = confirm('Cancel this booking? It will be removed from the app and from Google Calendar immediately — this can\'t be undone.');
+  async function confirmAndCancel(id, reloadFn, verb = 'Cancel') {
+    const ok = confirm(`${verb} this booking? It will be removed from the app and from Google Calendar immediately — this can't be undone.`);
     if (!ok) return;
     const result = await Api.cancelBooking(id);
     if (result && result.google_calendar_warning) alert(result.google_calendar_warning);
@@ -451,6 +461,7 @@
         <div>
           <div class="booking-dates">${fmtRange(b.start_date, b.end_date, { master: b.master_bedroom_config, middle: b.middle_bedroom_config, first: b.first_bedroom_config })}</div>
           <div class="booking-meta">${b.who_going ? b.who_going + ' · ' : ''}Requested ${b.created_at ? new Date(b.created_at).toLocaleDateString('en-GB') : '—'}${b.notes ? ' · ' + b.notes : ''}</div>
+          ${fmtRoomConfig(b) ? `<div class="booking-meta">${fmtRoomConfig(b)}</div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:12px">
           ${sourceBadge(b)}
@@ -495,13 +506,14 @@
         <div>
           <div class="booking-dates">${fmtRange(b.start_date, b.end_date, { master: b.master_bedroom_config, middle: b.middle_bedroom_config, first: b.first_bedroom_config })}</div>
           <div class="booking-meta">${b.who_going ? b.who_going + ' · ' : ''}${b.guest_name}${b.guest_email ? ' · ' + b.guest_email : ''}${b.guest_phone ? ' · ' + b.guest_phone : ''}${b.notes ? ' · ' + b.notes : ''}</div>
+          ${fmtRoomConfig(b) ? `<div class="booking-meta">${fmtRoomConfig(b)}</div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:12px">
           ${sourceBadge(b)}
           ${statusPill(b.status)}
           ${isEditable(b) && b.status === 'provisional' ? `<button class="btn btn-primary btn-small authorise-btn" data-id="${b.id}">Authorise</button>` : ''}
           ${isEditable(b) ? `<button class="btn btn-ghost btn-small edit-btn" data-id="${b.id}">Edit</button>` : ''}
-          ${isEditable(b) ? `<button class="btn btn-ghost btn-small cancel-btn" data-id="${b.id}">Cancel</button>` : ''}
+          ${isEditable(b) ? `<button class="btn btn-ghost btn-small cancel-btn" data-id="${b.id}">Delete</button>` : ''}
         </div>
       </li>
     `).join('');
@@ -518,7 +530,7 @@
       btn.addEventListener('click', () => openEditModal(bookings.find((b) => String(b.id) === btn.dataset.id), () => loadAllBookings()));
     });
     list.querySelectorAll('.cancel-btn').forEach((btn) => {
-      btn.addEventListener('click', () => confirmAndCancel(btn.dataset.id, () => loadAllBookings()));
+      btn.addEventListener('click', () => confirmAndCancel(btn.dataset.id, () => loadAllBookings(), 'Delete'));
     });
   }
 
