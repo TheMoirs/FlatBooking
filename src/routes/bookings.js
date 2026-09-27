@@ -6,6 +6,7 @@ const {
   upsertGoogleCalendarEvent,
   deleteGoogleCalendarEvent,
   deriveGoogleEventIdFromUid,
+  googleCalendarEventStillExists,
 } = require('../calendarSync');
 
 const router = express.Router();
@@ -16,6 +17,35 @@ const router = express.Router();
 // whenever one starts before the other ends, on both sides.
 function overlaps(aStart, aEnd, bStart, bEnd) {
   return aStart < bEnd && bStart < aEnd;
+}
+
+// Shared by /api/availability and GET /api/bookings?all=1 — if a booking's
+// Google Calendar event was deleted directly in Google Calendar (rather
+// than cancelled through the app), this removes the app's own record too,
+// so the two don't drift out of sync. `candidates` is any list of
+// {id, end_date, google_event_id} for currently-active bookings; `external`
+// is that call's already-fetched calendar feed. Being missing from the feed
+// is only a cheap first filter — the cached iCal feed can lag well behind a
+// just-made deletion — so a candidate is only actually removed once a live
+// Calendar API lookup confirms the event is really gone. Returns the set of
+// booking ids that were deleted.
+async function reconcileDeletedFromGoogle(candidates, external) {
+  const today = todayStr();
+  const presentEventIds = new Set(
+    external.map((r) => deriveGoogleEventIdFromUid(r.uid)).filter(Boolean)
+  );
+  const removedIds = new Set();
+  for (const b of candidates) {
+    if (!b.google_event_id) continue;
+    if (toDateOnlyValue(b.end_date) < today) continue;
+    if (presentEventIds.has(b.google_event_id)) continue;
+    const stillExists = await googleCalendarEventStillExists(b.google_event_id);
+    if (stillExists === false) removedIds.add(b.id);
+  }
+  if (removedIds.size) {
+    await query('DELETE FROM bookings WHERE id = ANY($1::int[])', [Array.from(removedIds)]);
+  }
+  return removedIds;
 }
 
 // GET /api/charges — public, no login required (it feeds the Costs page on
@@ -91,9 +121,16 @@ router.get('/availability', async (req, res) => {
   const calendarUrl = settingsResult.rows[0] && settingsResult.rows[0].google_calendar_url;
 
   let externalError = null;
+  let removedIds = new Set();
   if (calendarUrl) {
     try {
       const external = await fetchExternalBusyRanges(calendarUrl);
+
+      // If any of these bookings' events were deleted directly in Google
+      // Calendar, remove them here too, so a stale booking doesn't keep
+      // showing dates as taken after the calendar itself has freed them up.
+      removedIds = await reconcileDeletedFromGoogle(internal.rows, external);
+
       for (const r of external) {
         if (deriveGoogleEventIdFromUid(r.uid) && knownGoogleEventIds.has(deriveGoogleEventIdFromUid(r.uid))) continue;
         if (r.start < to && r.end > from) {
@@ -117,7 +154,8 @@ router.get('/availability', async (req, res) => {
     }
   }
 
-  res.json({ ranges, externalCalendarConnected: Boolean(calendarUrl), externalError });
+  const finalRanges = removedIds.size ? ranges.filter((r) => !removedIds.has(r.id)) : ranges;
+  res.json({ ranges: finalRanges, externalCalendarConnected: Boolean(calendarUrl), externalError });
 });
 
 // GET /api/bookings — the current user's own bookings, or (with ?all=1 and
@@ -171,7 +209,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
     try {
       const [external, activeRanges] = await Promise.all([
         fetchExternalBusyRanges(calendarUrl),
-        query(`SELECT start_date, end_date, google_event_id FROM bookings WHERE status <> 'cancelled'`),
+        query(`SELECT id, start_date, end_date, google_event_id FROM bookings WHERE status <> 'cancelled'`),
       ]);
       const existingRanges = activeRanges.rows;
       const importFailures = [];
@@ -241,6 +279,14 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
 
       if (importFailures.length) {
         calendarSyncError = `${importFailures.length} calendar event(s) couldn't be imported — ${importFailures.join('; ')}`;
+      }
+
+      // Reverse sync: if a booking's event was deleted directly in Google
+      // Calendar, remove it here too, so it doesn't keep showing up as a
+      // live booking after it's gone from the calendar.
+      const removedIds = await reconcileDeletedFromGoogle(existingRanges, external);
+      if (removedIds.size) {
+        dbResult.rows = dbResult.rows.filter((row) => !removedIds.has(row.id));
       }
     } catch (err) {
       // Keep the DB bookings visible even if the external feed is temporarily unavailable.

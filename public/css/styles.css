@@ -214,7 +214,7 @@ section.tight { padding: 48px 0; }
   display: grid;
   grid-template-columns: 1.1fr 1fr;
   gap: 56px;
-  align-items: center;
+  align-items: start;
 }
 .about-grid img {
   width: 100%;

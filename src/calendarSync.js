@@ -212,6 +212,36 @@ async function deleteGoogleCalendarEvent(eventId) {
   }
 }
 
+// Confirms whether a specific Google Calendar event id still exists and
+// hasn't been deleted. Used to reverse-sync deletions: if someone deletes a
+// booking's event directly in Google Calendar, this lets the app remove its
+// own record too, instead of the two staying out of sync forever. This
+// talks to the Calendar API directly (not the cached iCal feed used
+// elsewhere, which can lag well behind a just-made change), so it's the
+// most current answer available.
+// Returns true (still there), false (confirmed gone/cancelled), or null if
+// no reliable answer could be had (no credentials configured, or a
+// transient error) — callers should treat null as "don't know" and leave
+// the booking alone rather than risk deleting a live one.
+async function googleCalendarEventStillExists(eventId) {
+  if (!eventId) return null;
+  const calendarClient = await getGoogleCalendarClient();
+  if (!calendarClient) return null;
+
+  try {
+    const { data } = await calendarClient.calendar.events.get({
+      calendarId: calendarClient.calendarId,
+      eventId,
+    });
+    return data.status !== 'cancelled';
+  } catch (err) {
+    const code = err && (err.code || (err.response && err.response.status));
+    if (code === 404 || code === 410) return false;
+    console.error('Google Calendar existence check failed:', err.message || err);
+    return null;
+  }
+}
+
 async function checkGoogleCalendarWriteAccess() {
   const credentials = getGoogleCalendarCredentials();
   if (!credentials) {
@@ -327,5 +357,6 @@ module.exports = {
   deleteGoogleCalendarEvent,
   deriveGoogleCalendarIdFromUrl,
   deriveGoogleEventIdFromUid,
+  googleCalendarEventStillExists,
   checkGoogleCalendarWriteAccess,
 };
