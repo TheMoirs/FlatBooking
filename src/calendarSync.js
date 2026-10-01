@@ -9,7 +9,7 @@ function fmtDateHuman(dateStr) {
   if (!dateStr) return null;
   const [y, m, d] = String(dateStr).split('-').map(Number);
   if (!y || !m || !d) return dateStr;
-  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 // Combines a date with its time-of-day into one line ("27 Sep 2026
@@ -161,16 +161,16 @@ async function upsertGoogleCalendarEvent({
   const payload = {
     summary,
     description,
-    // endDate is the checkout day, and the app itself leaves it free for
-    // same-day turnover (a different guest can arrive the same day someone
-    // else checks out). Google's all-day events use an exclusive end date
-    // too, so pushing endDate as-is would only visually shade up to the
-    // night before checkout. We push endDate + 1 instead so the Google
-    // Calendar view itself shades all the way through the checkout day —
-    // purely a display choice for the calendar; it doesn't change what the
-    // app treats as bookable. See deriveGoogleEventIdFromUid/the auto-import
-    // matching in routes/bookings.js, which matches re-imported events by
-    // their Google event id rather than by date for exactly this reason.
+    // endDate is the checkout day, and the app blocks it like every other
+    // day of the stay. Google's all-day events use an exclusive end date
+    // though, so pushing endDate as-is would only visually shade up to the
+    // night before checkout — one day short of what the app itself treats
+    // as booked. We push endDate + 1 instead so the Google Calendar view
+    // shades all the way through the checkout day too, matching the
+    // availability calendar and the bookings lists. See
+    // deriveGoogleEventIdFromUid/the auto-import matching in
+    // routes/bookings.js, which matches re-imported events by their Google
+    // event id rather than by date for exactly this reason.
     start: { date: startDate },
     end: { date: addDays(endDate, 1) },
     transparency: 'opaque',

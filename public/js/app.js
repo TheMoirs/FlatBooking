@@ -14,6 +14,17 @@ const Api = {
   async login(payload) {
     return Api._send('/api/auth/login', payload);
   },
+  async googleClientId() {
+    const r = await fetch('/api/auth/google-client-id');
+    const data = await r.json().catch(() => ({}));
+    return data.client_id || null;
+  },
+  async googleSignIn(credential) {
+    return Api._send('/api/auth/google', { credential });
+  },
+  async googleCompleteSignUp(pendingToken, phone) {
+    return Api._send('/api/auth/google/complete', { pending_token: pendingToken, phone });
+  },
   async logout() {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
   },
@@ -148,6 +159,11 @@ function buildAuthModal() {
       <p class="sub" id="auth-modal-sub">Log in to book your stay at Mirador de Calahonda.</p>
       <div class="form-error" id="auth-error"></div>
 
+      <div id="google-signin-section">
+        <div id="google-signin-btn" class="google-signin-btn"></div>
+        <p class="auth-divider"><span>or</span></p>
+      </div>
+
       <form id="login-form">
         <div class="field">
           <label for="login-email">Email</label>
@@ -180,6 +196,15 @@ function buildAuthModal() {
         </div>
         <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center">Create account</button>
         <p class="modal-switch">Already have an account? <a href="#" id="switch-to-login">Log in</a></p>
+      </form>
+
+      <form id="google-phone-form" style="display:none">
+        <p class="sub" style="margin-top:0">Google doesn't share a phone number with us, so we just need yours to finish setting up your account.</p>
+        <div class="field">
+          <label for="google-phone">Phone number</label>
+          <input id="google-phone" type="tel" required autocomplete="tel" />
+        </div>
+        <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center">Finish creating account</button>
       </form>
     </div>
   `;
@@ -228,17 +253,123 @@ function buildAuthModal() {
       showAuthError(err.message);
     }
   });
+
+  wrap.querySelector('#google-phone-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideAuthError();
+    if (!pendingGoogleSignup) {
+      showAuthError('That sign-up has expired — please start again with Google.');
+      return;
+    }
+    try {
+      const { user } = await Api.googleCompleteSignUp(
+        pendingGoogleSignup.token,
+        document.getElementById('google-phone').value
+      );
+      pendingGoogleSignup = null;
+      currentUser = user;
+      afterAuthSuccess();
+    } catch (err) {
+      showAuthError(err.message);
+    }
+  });
+
+  initGoogleSignIn();
+}
+
+// Holds the short-lived server token + name/email from a Google sign-in
+// that turned out to be a new account, between showing the "what's your
+// phone number" step and that form's own submit handler completing it.
+let pendingGoogleSignup = null;
+let googleSignInScriptPromise = null;
+// Tri-state: null while initGoogleSignIn() hasn't resolved yet, then true/
+// false once it's known whether the button is actually available — so
+// showAuthMode() knows not to un-hide a section that was deliberately
+// hidden because there's no client id configured or the script failed to load.
+let googleSignInAvailable = null;
+
+// Loads https://accounts.google.com/gsi/client once (lazily, only once
+// someone actually opens the auth modal), then renders the "Continue with
+// Google" button. If GOOGLE_CLIENT_ID isn't set on the server, Google
+// sign-in just doesn't appear — the email/password forms work exactly as
+// before.
+async function initGoogleSignIn() {
+  const section = document.getElementById('google-signin-section');
+  try {
+    const clientId = await Api.googleClientId();
+    if (!clientId) {
+      googleSignInAvailable = false;
+      section.style.display = 'none';
+      return;
+    }
+    if (!googleSignInScriptPromise) {
+      googleSignInScriptPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+    await googleSignInScriptPromise;
+    google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential });
+    google.accounts.id.renderButton(document.getElementById('google-signin-btn'), {
+      theme: 'outline',
+      size: 'large',
+      width: 320,
+      text: 'continue_with',
+    });
+    googleSignInAvailable = true;
+  } catch (err) {
+    // No network access to Google, an ad blocker, etc. — fail quietly and
+    // just hide the Google option rather than showing a broken button.
+    googleSignInAvailable = false;
+    section.style.display = 'none';
+  }
+}
+
+async function handleGoogleCredential(response) {
+  hideAuthError();
+  try {
+    const result = await Api.googleSignIn(response.credential);
+    if (result.needs_phone) {
+      pendingGoogleSignup = { token: result.pending_token, name: result.name, email: result.email };
+      showAuthMode('google-phone');
+    } else {
+      currentUser = result.user;
+      afterAuthSuccess();
+    }
+  } catch (err) {
+    showAuthError(err.message);
+  }
 }
 
 function showAuthMode(mode) {
   const modal = document.getElementById('auth-modal');
   const isLogin = mode === 'login';
-  modal.querySelector('#login-form').style.display = isLogin ? 'block' : 'none';
-  modal.querySelector('#register-form').style.display = isLogin ? 'none' : 'block';
-  modal.querySelector('#auth-modal-title').textContent = isLogin ? 'Log in' : 'Create your account';
-  modal.querySelector('#auth-modal-sub').textContent = isLogin
-    ? 'Log in to book your stay at Mirador de Calahonda.'
-    : "We just need a few details so we know who's staying — then you can pick your dates.";
+  const isGooglePhone = mode === 'google-phone';
+
+  modal.querySelector('#login-form').style.display = !isGooglePhone && isLogin ? 'block' : 'none';
+  modal.querySelector('#register-form').style.display = !isGooglePhone && !isLogin ? 'block' : 'none';
+  modal.querySelector('#google-phone-form').style.display = isGooglePhone ? 'block' : 'none';
+  // The Google button + divider only make sense while picking how to sign
+  // in — not mid-way through finishing a Google sign-up, and not at all if
+  // it turned out not to be available (googleSignInAvailable === false).
+  if (googleSignInAvailable !== false) {
+    modal.querySelector('#google-signin-section').style.display = isGooglePhone ? 'none' : '';
+  }
+
+  if (isGooglePhone) {
+    modal.querySelector('#auth-modal-title').textContent = 'One more thing';
+    modal.querySelector('#auth-modal-sub').textContent = `Welcome, ${pendingGoogleSignup ? pendingGoogleSignup.name.split(' ')[0] : 'there'}.`;
+  } else {
+    modal.querySelector('#auth-modal-title').textContent = isLogin ? 'Log in' : 'Create your account';
+    modal.querySelector('#auth-modal-sub').textContent = isLogin
+      ? 'Log in to book your stay at Mirador de Calahonda.'
+      : "We just need a few details so we know who's staying — then you can pick your dates.";
+  }
   hideAuthError();
 }
 

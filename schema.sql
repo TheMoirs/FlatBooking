@@ -7,16 +7,29 @@ CREATE TABLE IF NOT EXISTS users (
   name          TEXT NOT NULL,
   email         TEXT NOT NULL UNIQUE,
   phone         TEXT NOT NULL,
-  password_hash TEXT NOT NULL,
+  -- Nullable: an account created via "Continue with Google" has no password
+  -- of its own until/unless the person sets one.
+  password_hash TEXT,
+  -- The Google account's stable per-app user id ("sub" claim), set once
+  -- someone has signed in with Google — either at registration, or linked
+  -- onto an existing email/password account the first time they use Google
+  -- sign-in with the same (verified) email.
+  google_id     TEXT UNIQUE,
   role          TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Both added after the table already existed in some deployments — backfills
+-- them in on existing databases; a no-op on a fresh install where the CREATE
+-- TABLE above already covers it.
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE;
 
 CREATE TABLE IF NOT EXISTS bookings (
   id                        SERIAL PRIMARY KEY,
   user_id                   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   start_date                DATE NOT NULL,
-  end_date                  DATE NOT NULL, -- exclusive, i.e. the checkout day (matches iCal DTEND convention)
+  end_date                  DATE NOT NULL, -- the checkout day (matches iCal DTEND convention); blocked like every other day of the stay — no same-day turnover
   status                    TEXT NOT NULL DEFAULT 'provisional' CHECK (status IN ('provisional', 'confirmed', 'cancelled')),
   who_going                 TEXT,
   arrival_time              TEXT,

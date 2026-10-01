@@ -565,6 +565,16 @@ section.tight { padding: 48px 0; }
 }
 .checkbox-row input[type="checkbox"] { width: auto; }
 .modal-switch { font-size: 0.88rem; margin-top: 14px; text-align: center; }
+.google-signin-btn { display: flex; justify-content: center; min-height: 40px; }
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  margin: 18px 0;
+}
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 .form-error { background: #F6DED6; color: #7A3316; padding: 10px 14px; border-radius: 4px; font-size: 0.87rem; margin-bottom: 14px; display: none; }
 .form-error.show { display: block; }
 .form-ok { background: #E4EEE3; color: #33502F; padding: 10px 14px; border-radius: 4px; font-size: 0.87rem; margin-bottom: 14px; display: none; }

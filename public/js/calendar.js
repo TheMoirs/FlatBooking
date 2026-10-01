@@ -8,9 +8,12 @@ function isoDate(year, month, day) {
 }
 const DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-// ranges: [{start:'YYYY-MM-DD', end:'YYYY-MM-DD' (exclusive), status}]
+// ranges: [{start:'YYYY-MM-DD', end:'YYYY-MM-DD' (checkout day, inclusive —
+// it's blocked like every other day of the stay, so this agrees with the
+// bookings lists and Google Calendar, which both show the booking as
+// running through that date), status}]
 function isDateBusy(dateStr, ranges) {
-  return ranges.some((r) => dateStr >= r.start && dateStr < r.end);
+  return ranges.some((r) => dateStr >= r.start && dateStr <= r.end);
 }
 
 function escapeHtml(value) {
@@ -37,7 +40,7 @@ function renderMonthGrid(year, month, ranges = [], options = {}) {
 
   for (let day = 1; day <= total; day++) {
     const dateStr = isoDate(year, month, day);
-    const occupied = ranges.filter((r) => dateStr >= r.start && dateStr < r.end);
+    const occupied = ranges.filter((r) => dateStr >= r.start && dateStr <= r.end);
     const description = occupied[0] && occupied[0].description ? occupied[0].description : null;
     const classes = ['day'];
     if (dateStr < today) classes.push('past');

@@ -11,12 +11,13 @@ const {
 
 const router = express.Router();
 
-// end_date is the checkout day and is exclusive — someone can leave in the
-// morning and a different guest can arrive that same afternoon, so the
-// checkout day itself isn't treated as blocked. Two bookings overlap
-// whenever one starts before the other ends, on both sides.
+// end_date is the checkout day. It's treated as blocked, same as every other
+// day of the stay — no same-day turnover — so the availability calendar,
+// Google Calendar and the bookings lists all agree on when a booking ends.
+// Two bookings overlap whenever one starts on or before the other ends, on
+// both sides.
 function overlaps(aStart, aEnd, bStart, bEnd) {
-  return aStart < bEnd && bStart < aEnd;
+  return aStart <= bEnd && bStart <= aEnd;
 }
 
 // Shared by /api/availability and GET /api/bookings?all=1 — if a booking's
@@ -118,7 +119,7 @@ router.get('/availability', async (req, res) => {
             b.notes, b.calendar_description
      FROM bookings b
      JOIN users u ON u.id = b.user_id
-     WHERE b.status <> 'cancelled' AND b.start_date < $2 AND b.end_date > $1
+     WHERE b.status <> 'cancelled' AND b.start_date <= $2 AND b.end_date >= $1
      ORDER BY b.start_date`,
     [from, to]
   );
@@ -177,7 +178,7 @@ router.get('/availability', async (req, res) => {
 
       for (const r of external) {
         if (deriveGoogleEventIdFromUid(r.uid) && knownGoogleEventIds.has(deriveGoogleEventIdFromUid(r.uid))) continue;
-        if (r.start < to && r.end > from) {
+        if (r.start <= to && r.end >= from) {
           const { status, guestName: cleanSummary } = parseExternalSummary(r.summary);
           const description = formatExternalDescription({
             summary: cleanSummary,
@@ -379,7 +380,7 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
 
   const existing = await query(
     `SELECT start_date, end_date FROM bookings WHERE status <> 'cancelled'
-     AND start_date < $2 AND end_date > $1`,
+     AND start_date <= $2 AND end_date >= $1`,
     [start_date, end_date]
   );
   const clash = existing.rows.some((b) =>
@@ -567,7 +568,7 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
 
   const others = await query(
     `SELECT start_date, end_date FROM bookings WHERE status <> 'cancelled' AND id <> $1
-     AND start_date < $3 AND end_date > $2`,
+     AND start_date <= $3 AND end_date >= $2`,
     [req.params.id, start_date, end_date]
   );
   const clash = others.rows.some((b) =>

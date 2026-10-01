@@ -31,6 +31,28 @@ function signSession(user) {
   );
 }
 
+// A brand-new "Continue with Google" sign-up still needs a phone number —
+// the one thing Google doesn't hand over — before the account can be
+// created. Rather than trust whatever the browser sends back on that second
+// step, the already-verified Google payload (id, email, name) gets packed
+// into this short-lived token after the ID token check, and the completing
+// request has to present it back. `purpose` keeps it from being usable
+// anywhere a real session token is expected, or vice versa.
+const PENDING_GOOGLE_SIGNUP_TTL = 60 * 10; // 10 minutes — just long enough to fill in a phone number
+function signPendingGoogleSignup({ googleId, email, name }) {
+  return jwt.sign(
+    { purpose: 'google_signup', googleId, email, name },
+    process.env.JWT_SECRET,
+    { expiresIn: PENDING_GOOGLE_SIGNUP_TTL }
+  );
+}
+
+function verifyPendingGoogleSignup(token) {
+  const payload = jwt.verify(token, process.env.JWT_SECRET);
+  if (payload.purpose !== 'google_signup') throw new Error('Not a pending-signup token.');
+  return payload;
+}
+
 function setSessionCookie(res, user) {
   const token = signSession(user);
   res.cookie(COOKIE_NAME, token, {
@@ -79,4 +101,6 @@ module.exports = {
   attachUser,
   requireAuth,
   requireAdmin,
+  signPendingGoogleSignup,
+  verifyPendingGoogleSignup,
 };

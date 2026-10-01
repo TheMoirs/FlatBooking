@@ -376,14 +376,14 @@
     const fee = bedroomsUsed(bedroomConfig) >= 2 ? cleaningFee2Rooms : cleaningFee1Room;
     return fee === null ? null : fee;
   }
-  // 'YYYY-MM-DD' -> '27 Sep 2026', built from plain Y/M/D components (never
-  // parsed as a UTC instant) so it can't drift a day either way — same
-  // approach as the equivalent helper in calendarSync.js.
+  // 'YYYY-MM-DD' -> 'Sun, 27 Sep 2026', built from plain Y/M/D components
+  // (never parsed as a UTC instant) so it can't drift a day either way —
+  // same approach as the equivalent helper in calendarSync.js.
   function fmtDateHuman(dateStr) {
     if (!dateStr) return null;
     const [y, m, d] = String(dateStr).split('-').map(Number);
     if (!y || !m || !d) return dateStr;
-    return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   }
   // Combines a date with its time-of-day into one line ("27 Sep 2026
   // (Afternoon)") rather than showing them separately — same layout used in
@@ -413,7 +413,7 @@
   // yet) the line just stops after whichever figures are available.
   function fmtRange(start, end, bedroomConfig) {
     const s = new Date(start), e = new Date(end);
-    const opts = { day: 'numeric', month: 'short', year: 'numeric' };
+    const opts = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
     const nights = nightsBetween(start, end);
     let text = `${s.toLocaleDateString('en-GB', opts)} → ${e.toLocaleDateString('en-GB', opts)} · ${fmtNights(nights)}`;
 
@@ -482,7 +482,7 @@
       <li class="booking-row" data-id="${b.id}" style="cursor:pointer">
         <div>
           <div class="booking-dates">${fmtRange(b.start_date, b.end_date, { master: b.master_bedroom_config, middle: b.middle_bedroom_config, first: b.first_bedroom_config })}</div>
-          <div class="booking-meta">${b.who_going ? b.who_going + ' · ' : ''}Requested ${b.created_at ? new Date(b.created_at).toLocaleDateString('en-GB') : '—'}${b.notes ? ' · ' + b.notes : ''}</div>
+          <div class="booking-meta">${b.who_going ? b.who_going + ' · ' : ''}Requested ${b.created_at ? new Date(b.created_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—'}${b.notes ? ' · ' + b.notes : ''}</div>
           ${fmtRoomConfig(b) ? `<div class="booking-meta">${fmtRoomConfig(b)}</div>` : ''}
         </div>
         <div class="booking-actions">

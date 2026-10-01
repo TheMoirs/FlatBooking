@@ -11,7 +11,10 @@ family and friends.
   page lists nearby restaurants, bars and activities with website and map
   links.
 - **Book Now**: prompts anyone not logged in to create an account or log in
-  (name, email, phone, password).
+  (name, email, phone, password) — or, if `GOOGLE_CLIENT_ID` is configured
+  (see below), with one click via "Continue with Google". Since Google
+  doesn't hand over a phone number, a first-time Google sign-up is asked for
+  one as a last step before the account is created.
 - **Logged-in guests**: can pick a check-in/check-out range on an interactive
   calendar and submit it — this creates a **provisional** booking.
 - **Admins**: any account registered with an email listed in `ADMIN_EMAILS`
@@ -83,6 +86,22 @@ manager:
      it in. The public availability calendar will then also block whatever
      is busy on that calendar.
 
+4. **"Continue with Google" sign-in (optional)**
+   - In [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+     (the same project as the calendar service account is fine), create an
+     **OAuth client ID** of type **Web application**.
+   - Under **Authorized JavaScript origins**, add your site's URL (e.g.
+     `https://your-app.onrender.com`) and, for local development,
+     `http://localhost:3000`. No redirect URI or client secret is needed —
+     the frontend uses Google Identity Services' token-based sign-in.
+   - Add the client ID as `GOOGLE_CLIENT_ID` in Render's environment
+     variables (and in your local `.env`). Leave it unset to not offer
+     Google sign-in at all.
+   - Google doesn't share a phone number over this flow, so a brand-new
+     Google sign-up is asked for one as a last step before their account is
+     created; existing email/password accounts get linked automatically the
+     first time they use Google sign-in with the same, Google-verified email.
+
 ## API summary
 
 | Method | Path | Access | Purpose |
@@ -90,6 +109,8 @@ manager:
 | GET | `/api/availability` | Public | Booked/available date ranges (internal + linked calendar) |
 | POST | `/api/auth/register` | Public | Create an account |
 | POST | `/api/auth/login` | Public | Log in |
+| POST | `/api/auth/google` | Public | Sign in with a Google ID token (logs in, or flags a new sign-up as needing a phone number) |
+| POST | `/api/auth/google/complete` | Public | Finish a new Google sign-up once a phone number is supplied |
 | POST | `/api/auth/logout` | Public | Log out |
 | GET | `/api/auth/me` | Public | Current session, if any |
 | GET | `/api/bookings` | Logged in | Your own bookings |

@@ -68,7 +68,7 @@
   }
   function fmtRange(start, end) {
     const s = new Date(start), e = new Date(end);
-    const opts = { day: 'numeric', month: 'short', year: 'numeric' };
+    const opts = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
     return `${s.toLocaleDateString('en-GB', opts)} → ${e.toLocaleDateString('en-GB', opts)} · ${fmtNights(nightsBetween(start, end))}`;
   }
 
