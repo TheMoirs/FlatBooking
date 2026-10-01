@@ -19,10 +19,14 @@
 </header>
 
 <div class="container" style="padding:48px 24px 80px">
-  <h1 style="margin-bottom:8px">42 Mirador de Calahonda Bookings</h1>
+  <h1 style="margin-bottom:8px">Bookings for Casa Moir</h1>
   <p style="color:var(--ink-soft);margin-bottom:28px">Every booking, with room configurations and stay details.</p>
 
   <div class="form-error" id="agent-error"></div>
+  <div class="checkbox-row">
+    <input type="checkbox" id="show-past-bookings" />
+    <label for="show-past-bookings" style="margin:0">Show past bookings</label>
+  </div>
   <ul class="booking-list" id="agent-bookings-list"></ul>
 </div>
 
@@ -85,16 +89,24 @@
     return parts.map((p) => escapeHtml(p)).join('<br>');
   }
 
+  // 'YYYY-MM-DD' for the 1st of the current month, in local time — same
+  // default cutoff and scroll target used on the admin "All bookings" tab.
+  function startOfCurrentMonth() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  }
+
   async function loadAgentBookings() {
     const list = document.getElementById('agent-bookings-list');
     const errEl = document.getElementById('agent-error');
+    const showPast = document.getElementById('show-past-bookings').checked;
     list.innerHTML = '<li class="empty-state">Loading…</li>';
-    let bookings, calendar_sync_error;
+    let allBookings, calendar_sync_error;
     try {
       const r = await fetch('/api/bookings?all=1', { credentials: 'include' });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || 'Unable to load bookings.');
-      ({ bookings, calendar_sync_error } = data);
+      ({ bookings: allBookings, calendar_sync_error } = data);
     } catch (e) {
       list.innerHTML = `<li class="empty-state">Couldn't load bookings: ${e.message}</li>`;
       return;
@@ -105,9 +117,20 @@
     } else {
       errEl.classList.remove('show');
     }
-    if (!bookings.length) { list.innerHTML = '<li class="empty-state">No bookings yet.</li>'; return; }
+    const cutoff = startOfCurrentMonth();
+    // Same behaviour as the admin "All bookings" tab: unticked (the
+    // default) hides anything before this month; ticked shows the full
+    // history (back to the app's 12-month retention limit), scrolled to
+    // the current month so past bookings are reachable by scrolling up
+    // rather than burying what's current.
+    const bookings = showPast ? allBookings : allBookings.filter((b) => b.end_date >= cutoff);
+    if (!bookings.length) {
+      list.innerHTML = `<li class="empty-state">${showPast ? 'No bookings yet.' : 'No current or upcoming bookings.'}</li>`;
+      return;
+    }
+    const anchorBooking = showPast ? bookings.find((b) => b.end_date >= cutoff) : null;
     list.innerHTML = bookings.map((b) => `
-      <li class="booking-row">
+      <li class="booking-row" ${anchorBooking && b.id === anchorBooking.id ? 'id="current-month-anchor"' : ''}>
         <div>
           <div class="booking-dates">${fmtRange(b.start_date, b.end_date)}</div>
           ${b.who_going ? `<div class="booking-meta">${escapeHtml(b.who_going)}</div>` : ''}
@@ -120,6 +143,11 @@
         </div>
       </li>
     `).join('');
+
+    if (anchorBooking) {
+      const anchorEl = document.getElementById('current-month-anchor');
+      if (anchorEl) anchorEl.scrollIntoView({ block: 'start' });
+    }
   }
 
   (async function boot() {
@@ -129,6 +157,7 @@
         '<p style="color:var(--ink-soft)">You need to be logged in as an admin to view this page.</p>';
       return;
     }
+    document.getElementById('show-past-bookings').addEventListener('change', loadAgentBookings);
     await loadAgentBookings();
   })();
 </script>
