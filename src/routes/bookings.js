@@ -91,20 +91,15 @@ async function ensurePushedToGoogle(rows) {
 // Retention: the app only keeps the last 12 months of booking history
 // (every status, not just cancelled ones) — runs opportunistically whenever
 // an admin loads "All bookings", the same self-healing pattern as the
-// calendar sync above, rather than needing a separate scheduled job. Any
-// Google Calendar event a purged booking still had gets deleted too
-// (best-effort) — otherwise it would just come back as a "new" auto-import
-// on the very next sync.
+// calendar sync above, rather than needing a separate scheduled job. This
+// only removes the app's own record — any Google Calendar event is left
+// alone, so Google keeps the full history even once the app has trimmed
+// its own. That's safe from the app's side too: the auto-import loop above
+// only ever imports current/future events (`if (r.end < today) continue`),
+// so a purged booking — always well in the past by definition — can't come
+// back as a "new" import on the next sync.
 async function purgeOldBookings() {
   const cutoff = addMonths(todayStr(), -12);
-  const stale = await query('SELECT id, google_event_id FROM bookings WHERE end_date < $1', [cutoff]);
-  if (!stale.rows.length) return;
-
-  for (const row of stale.rows) {
-    if (row.google_event_id) {
-      await deleteGoogleCalendarEvent(row.google_event_id);
-    }
-  }
   await query('DELETE FROM bookings WHERE end_date < $1', [cutoff]);
 }
 
