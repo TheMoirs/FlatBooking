@@ -53,6 +53,9 @@ const Api = {
   async authoriseBooking(id) {
     return Api._send(`/api/bookings/${id}/authorise`, {}, 'POST');
   },
+  async unauthoriseBooking(id) {
+    return Api._send(`/api/bookings/${id}/unauthorise`, {}, 'POST');
+  },
   async cancelBooking(id) {
     return Api._send(`/api/bookings/${id}/cancel`, {}, 'POST');
   },

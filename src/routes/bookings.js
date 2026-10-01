@@ -48,6 +48,45 @@ async function reconcileDeletedFromGoogle(candidates, external) {
   return removedIds;
 }
 
+// Shared by /api/availability and GET /api/bookings?all=1 — the opposite
+// direction from reconcileDeletedFromGoogle: any active booking that has no
+// google_event_id at all (most often one that was saved while the Google
+// Calendar write-back was misconfigured, e.g. missing credentials or no
+// Editor access on the calendar — see google_calendar_warning on
+// POST/PUT /bookings) gets pushed now instead of staying stuck. `rows` need
+// id, start_date, end_date, status, google_event_id, who_going, guest_name
+// (account holder, used only as a fallback), arrival_time, departure_time,
+// the three bedroom configs, sofa_bed_required and notes. Mutates each
+// pushed row's google_event_id in place so the response this call is
+// already building reflects it, and returns how many were pushed.
+async function ensurePushedToGoogle(rows) {
+  let pushedCount = 0;
+  for (const b of rows) {
+    if (b.google_event_id || b.status === 'cancelled') continue;
+    const guestName = (b.who_going && String(b.who_going).trim()) || b.guest_name || 'Guest';
+    const eventId = await upsertGoogleCalendarEvent({
+      eventId: null,
+      startDate: toDateOnlyValue(b.start_date),
+      endDate: toDateOnlyValue(b.end_date),
+      guestName,
+      status: b.status,
+      arrivalTime: b.arrival_time,
+      departureTime: b.departure_time,
+      masterBedroomConfig: b.master_bedroom_config,
+      middleBedroomConfig: b.middle_bedroom_config,
+      firstBedroomConfig: b.first_bedroom_config,
+      sofaBedRequired: b.sofa_bed_required,
+      notes: b.notes,
+    });
+    if (eventId) {
+      await query('UPDATE bookings SET google_event_id = $1 WHERE id = $2', [eventId, b.id]);
+      b.google_event_id = eventId;
+      pushedCount += 1;
+    }
+  }
+  return pushedCount;
+}
+
 // GET /api/charges — public, no login required (it feeds the Costs page on
 // the homepage, and the nights/charge shown against bookings for any
 // logged-in user, not just admins). Just the charges — nothing else admin
@@ -73,7 +112,7 @@ router.get('/availability', async (req, res) => {
   const to = req.query.to || addMonths(from, 6);
 
   const internal = await query(
-    `SELECT b.id, b.start_date, b.end_date, b.status, b.google_event_id, u.name AS guest_name,
+    `SELECT b.id, b.start_date, b.end_date, b.status, b.google_event_id, b.who_going, u.name AS guest_name,
             b.arrival_time, b.departure_time, b.master_bedroom_config,
             b.middle_bedroom_config, b.first_bedroom_config, b.sofa_bed_required,
             b.notes, b.calendar_description
@@ -130,6 +169,11 @@ router.get('/availability', async (req, res) => {
       // Calendar, remove them here too, so a stale booking doesn't keep
       // showing dates as taken after the calendar itself has freed them up.
       removedIds = await reconcileDeletedFromGoogle(internal.rows, external);
+
+      // The other direction: any booking here that was never actually
+      // pushed to Google (e.g. saved while write-back was misconfigured)
+      // gets pushed now, so the calendar catches up with the app.
+      await ensurePushedToGoogle(internal.rows);
 
       for (const r of external) {
         if (deriveGoogleEventIdFromUid(r.uid) && knownGoogleEventIds.has(deriveGoogleEventIdFromUid(r.uid))) continue;
@@ -193,7 +237,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
             b.arrival_time, b.departure_time,
             b.master_bedroom_config, b.middle_bedroom_config, b.first_bedroom_config, b.sofa_bed_required,
             u.name AS guest_name, u.email AS guest_email, u.phone AS guest_phone,
-            b.calendar_description
+            b.calendar_description, b.google_event_id
      FROM bookings b JOIN users u ON u.id = b.user_id
      ORDER BY b.start_date ASC`
   );
@@ -260,6 +304,11 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
           const row = inserted.rows[0];
           dbResult.rows.push({
             ...row,
+            // Not in the INSERT's RETURNING list — set explicitly from the
+            // local variable so ensurePushedToGoogle() below doesn't mistake
+            // a just-imported row for one that still needs pushing (which
+            // would create a duplicate event back on the same calendar).
+            google_event_id: googleEventId,
             arrival_time: null,
             departure_time: null,
             master_bedroom_config: null,
@@ -288,6 +337,11 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
       if (removedIds.size) {
         dbResult.rows = dbResult.rows.filter((row) => !removedIds.has(row.id));
       }
+
+      // Forward sync: any active booking that was made in the app but never
+      // made it to Google Calendar (e.g. a push failed at creation time) gets
+      // pushed now, so "All bookings" always reflects what's on the calendar.
+      await ensurePushedToGoogle(dbResult.rows);
     } catch (err) {
       // Keep the DB bookings visible even if the external feed is temporarily unavailable.
       calendarSyncError = err.message;
@@ -426,6 +480,45 @@ router.post('/bookings/:id/authorise', attachUser, requireAdmin, async (req, res
       endDate: row.end_date,
       guestName: row.who_going || row.guest_name,
       status: 'confirmed',
+      arrivalTime: row.arrival_time,
+      departureTime: row.departure_time,
+      masterBedroomConfig: row.master_bedroom_config,
+      middleBedroomConfig: row.middle_bedroom_config,
+      firstBedroomConfig: row.first_bedroom_config,
+      sofaBedRequired: row.sofa_bed_required,
+      notes: row.notes,
+    });
+  }
+
+  res.json({ booking: result.rows[0] });
+});
+
+// POST /api/bookings/:id/unauthorise — admin reverts a confirmed booking
+// back to provisional (the reverse of /authorise), e.g. after confirming by
+// mistake or needing to re-check something before it's final.
+router.post('/bookings/:id/unauthorise', attachUser, requireAdmin, async (req, res) => {
+  const current = await query(
+    `SELECT b.*, u.name AS guest_name
+     FROM bookings b JOIN users u ON u.id = b.user_id
+     WHERE b.id = $1`,
+    [req.params.id]
+  );
+  if (!current.rows.length) return res.status(404).json({ error: 'Booking not found.' });
+
+  const row = current.rows[0];
+  const result = await query(
+    `UPDATE bookings SET status = 'provisional', authorised_by = NULL, authorised_at = NULL
+     WHERE id = $1 RETURNING id, start_date, end_date, status, google_event_id`,
+    [req.params.id]
+  );
+
+  if (result.rows[0]?.google_event_id) {
+    await upsertGoogleCalendarEvent({
+      eventId: result.rows[0].google_event_id,
+      startDate: row.start_date,
+      endDate: row.end_date,
+      guestName: row.who_going || row.guest_name,
+      status: 'provisional',
       arrivalTime: row.arrival_time,
       departureTime: row.departure_time,
       masterBedroomConfig: row.master_bedroom_config,
