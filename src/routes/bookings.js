@@ -88,6 +88,26 @@ async function ensurePushedToGoogle(rows) {
   return pushedCount;
 }
 
+// Retention: the app only keeps the last 12 months of booking history
+// (every status, not just cancelled ones) — runs opportunistically whenever
+// an admin loads "All bookings", the same self-healing pattern as the
+// calendar sync above, rather than needing a separate scheduled job. Any
+// Google Calendar event a purged booking still had gets deleted too
+// (best-effort) — otherwise it would just come back as a "new" auto-import
+// on the very next sync.
+async function purgeOldBookings() {
+  const cutoff = addMonths(todayStr(), -12);
+  const stale = await query('SELECT id, google_event_id FROM bookings WHERE end_date < $1', [cutoff]);
+  if (!stale.rows.length) return;
+
+  for (const row of stale.rows) {
+    if (row.google_event_id) {
+      await deleteGoogleCalendarEvent(row.google_event_id);
+    }
+  }
+  await query('DELETE FROM bookings WHERE end_date < $1', [cutoff]);
+}
+
 // GET /api/charges — public, no login required (it feeds the Costs page on
 // the homepage, and the nights/charge shown against bookings for any
 // logged-in user, not just admins). Just the charges — nothing else admin
@@ -231,8 +251,11 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
     return res.json({ bookings: result.rows });
   }
 
-  // "All bookings" is always the complete record — past, current and future
-  // — with no filter toggle, so admins have one place that shows everything.
+  // "All bookings" always returns the complete record — past (up to the
+  // 12-month retention limit), current and future — the "Show past
+  // bookings" toggle that hides most of the past ones by default lives
+  // entirely in the frontend, not here.
+  await purgeOldBookings();
   const dbResult = await query(
     `SELECT b.id, b.start_date, b.end_date, b.status, b.who_going, b.notes, b.created_at, b.source,
             b.arrival_time, b.departure_time,

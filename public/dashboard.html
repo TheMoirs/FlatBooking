@@ -143,6 +143,10 @@
         <a class="btn btn-ghost btn-small" href="/agent-bookings.html" target="_blank" rel="noopener">Agent Bookings</a>
       </div>
       <p style="color:var(--ink-soft)">Authorise a provisional booking once you're happy to confirm it, or cancel one that shouldn't go ahead. Click a booking for its full details.</p>
+      <div class="checkbox-row">
+        <input type="checkbox" id="show-past-bookings" />
+        <label for="show-past-bookings" style="margin:0">Show past bookings</label>
+      </div>
       <ul class="booking-list" id="all-bookings-list"></ul>
     </div>
 
@@ -507,12 +511,22 @@
     });
   }
 
+  // 'YYYY-MM-DD' for the 1st of the current month, in local time — the
+  // default cutoff for "All bookings" (past bookings hidden below this
+  // unless the checkbox is ticked) and the point the list scrolls to when
+  // they are shown.
+  function startOfCurrentMonth() {
+    const now = new Date();
+    return isoDate(now.getFullYear(), now.getMonth(), 1);
+  }
+
   async function loadAllBookings() {
     const list = document.getElementById('all-bookings-list');
+    const showPast = document.getElementById('show-past-bookings').checked;
     list.innerHTML = '<li class="empty-state">Loading…</li>';
-    let bookings, calendar_sync_error;
+    let allBookings, calendar_sync_error;
     try {
-      ({ bookings, calendar_sync_error } = await Api.allBookings());
+      ({ bookings: allBookings, calendar_sync_error } = await Api.allBookings());
     } catch (e) {
       list.innerHTML = `<li class="empty-state">Couldn't load bookings: ${e.message}</li>`;
       return;
@@ -522,9 +536,24 @@
     if (calendar_sync_error) {
       list.insertAdjacentHTML('beforebegin', `<div id="all-bookings-sync-error" class="form-error show" style="margin-bottom:12px">Couldn't sync the linked Google Calendar: ${escapeHtml(calendar_sync_error)}</div>`);
     }
-    if (!bookings.length) { list.innerHTML = '<li class="empty-state">No bookings yet.</li>'; return; }
+    const cutoff = startOfCurrentMonth();
+    // Unticked (the default): only this month's bookings onward — past
+    // bookings are still in the app (see purgeOldBookings server-side, which
+    // only drops anything over 12 months old), just hidden here unless asked
+    // for. Ticked: the full list, oldest first as always, but scrolled down
+    // to this same cutoff so past bookings don't bury what's current — the
+    // admin scrolls up from there to see them.
+    const bookings = showPast ? allBookings : allBookings.filter((b) => b.end_date >= cutoff);
+    if (!bookings.length) {
+      list.innerHTML = `<li class="empty-state">${showPast ? 'No bookings yet.' : 'No current or upcoming bookings.'}</li>`;
+      return;
+    }
+    // The first current-or-future booking in the (oldest-first) list — the
+    // scroll target when past bookings are shown, so the admin lands on
+    // "now" with past history scrollable above and the future below.
+    const anchorBooking = showPast ? bookings.find((b) => b.end_date >= cutoff) : null;
     list.innerHTML = bookings.map((b) => `
-      <li class="booking-row" data-id="${b.id}" style="cursor:pointer">
+      <li class="booking-row" ${anchorBooking && b.id === anchorBooking.id ? 'id="current-month-anchor"' : ''} data-id="${b.id}" style="cursor:pointer">
         <div>
           <div class="booking-dates">${fmtRange(b.start_date, b.end_date, { master: b.master_bedroom_config, middle: b.middle_bedroom_config, first: b.first_bedroom_config })}</div>
           <div class="booking-meta">${b.who_going ? b.who_going + ' · ' : ''}${b.guest_name}${b.guest_email ? ' · ' + b.guest_email : ''}${b.guest_phone ? ' · ' + b.guest_phone : ''}${b.notes ? ' · ' + b.notes : ''}</div>
@@ -559,6 +588,11 @@
     list.querySelectorAll('.cancel-btn').forEach((btn) => {
       btn.addEventListener('click', () => confirmAndCancel(btn.dataset.id, () => loadAllBookings(), 'Delete'));
     });
+
+    if (anchorBooking) {
+      const anchorEl = document.getElementById('current-month-anchor');
+      if (anchorEl) anchorEl.scrollIntoView({ block: 'start' });
+    }
   }
 
   async function loadSettings() {
@@ -906,6 +940,7 @@
       ? 'Manage bookings and the linked calendar for Mirador de Calahonda.'
       : 'Request a stay and track your bookings.';
     buildTabs(user.role);
+    document.getElementById('show-past-bookings').addEventListener('change', loadAllBookings);
     applyDatesFromQuery();
     await loadCharges();
     await loadBookingCalendar();
