@@ -195,7 +195,22 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   margin: 0 auto;
   width: 100%;
 }
-.hero h1 { color: var(--white); max-width: 34ch; margin-bottom: 10px; }
+.hero h1 {
+  color: var(--white);
+  max-width: none;
+  margin-bottom: 10px;
+  /* Smaller, and scaled more aggressively with viewport width than the
+     site-wide h1, so "Casa Moir - Our holiday home in Calahonda." fits on
+     one line instead of wrapping to two. */
+  font-size: clamp(1.05rem, 4.2vw, 2.6rem);
+  white-space: nowrap;
+}
+@media (max-width: 380px) {
+  /* Below this, even the smallest comfortable font size can't fit the full
+     line without crowding the edges — fall back to letting it wrap over
+     two lines, as it did before, rather than clipping or scrolling. */
+  .hero h1 { white-space: normal; max-width: 34ch; }
+}
 .hero .lede {
   color: var(--white);
   font-size: 1.15rem;
