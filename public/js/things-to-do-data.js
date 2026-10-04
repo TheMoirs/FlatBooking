@@ -87,7 +87,7 @@ const THINGS_TO_DO = {
       { heading: null, items: [
         { name: "Dolphin sightseeing boat tour, Fuengirola", note: "€38 for 2 hrs, inc. drinks/snacks — 20 mins by car", site: "https://www.sailbombay.com/", map: "https://maps.app.goo.gl/9q9BfRvg1SsVJwms7" },
         { name: "Beach clubs with pool, bar & restaurant", note: "Max Beach, Riviera & Unico Beach Club, La Cala", site: "https://www.maxbeach.es/" },
-        { name: "Kitesurfing Lessons — Marbella Kite School", note: "" },
+        { name: "Kitesurfing Lessons — Marbella Kite School", note: "", site: "https://marbellakiteschool.com/" },
         { name: "Walk the boardwalk (Senda Litoral), La Cala to Cabopino", note: "About 7km (1.5 hrs) each way", site: "https://visitfuengirola.com/hike-on-the-senda-litoral-from-mijas-to-cabopino/" },
         { name: "Crazy Golf, Fuengirola", note: "18 mins by car", site: "https://fuengirolaadventuregolf.com/", map: "https://maps.app.goo.gl/Pvfs8YmjaZrwQtGRA" },
         { name: "Mijas Grand Park", note: "Children's play area, skate park, running track, pétanque pistes, lakes — 20 min drive", map: "https://maps.app.goo.gl/3eQuoSMFyNLsemt39" },
