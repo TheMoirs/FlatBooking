@@ -6,17 +6,12 @@ const THINGS_TO_DO = {
     intro: "There are loads, but here's a few.",
     groups: [
       {
-        heading: "Pricey, but great food",
+        heading: null,
         items: [
           { name: "Dos Leones", note: "Great steaks — next door to the left", map: "https://goo.gl/maps/eqJCJpf9dHm11PJt9" },
           { name: "Da Bruno a Cabopino", note: "6 mins by car", site: "https://www.dabruno.com/en-cabopino", map: "https://g.page/restaurante-en-marbella?share" },
           { name: "La Pergola", note: "Italian, Torrenueva — 8 mins by car", site: "https://lapergolalacala.com/", map: "https://goo.gl/maps/CAJ7kCVp4pm5Mmed9" },
-          { name: "Geranium", note: "La Cala — 10 mins by car", site: "https://thenewgeranium.com/", map: "https://maps.app.goo.gl/2uhDwaodF1Hq4ruQ8" }
-        ]
-      },
-      {
-        heading: "Reasonable prices",
-        items: [
+          { name: "Geranium", note: "La Cala — 10 mins by car", site: "https://thenewgeranium.com/", map: "https://maps.app.goo.gl/2uhDwaodF1Hq4ruQ8" },
           { name: "Restaurante La Siesta Golf", note: "Next door to the right", map: "https://goo.gl/maps/cfQBnwptaa4KvW437" },
           { name: "Myel y Nata", note: "Huge portions — 2 mins by car, 12 mins on foot", map: "https://goo.gl/maps/4YjKCA1aH5bwZvsB9" },
           { name: "Luna Beach Calahonda", note: "8 mins by car", site: "https://lunabeachrestaurante.com/", map: "https://g.page/lunabeachcalahonda?share" },
