@@ -7,6 +7,7 @@ const {
   deleteGoogleCalendarEvent,
   deriveGoogleEventIdFromUid,
   googleCalendarEventStillExists,
+  fmtDateTimeLine,
 } = require('../calendarSync');
 
 const router = express.Router();
@@ -149,6 +150,8 @@ router.get('/availability', async (req, res) => {
       status: b.status,
       arrivalTime: b.arrival_time,
       departureTime: b.departure_time,
+      startDate: toDateOnlyValue(b.start_date),
+      endDate: toDateOnlyValue(b.end_date),
       masterBedroomConfig: b.master_bedroom_config,
       middleBedroomConfig: b.middle_bedroom_config,
       firstBedroomConfig: b.first_bedroom_config,
@@ -415,6 +418,8 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
     notes,
     arrivalTime: arrival_time,
     departureTime: departure_time,
+    startDate: start_date,
+    endDate: end_date,
     masterBedroomConfig: master_bedroom_config,
     middleBedroomConfig: middle_bedroom_config,
     firstBedroomConfig: first_bedroom_config,
@@ -603,6 +608,8 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
     notes,
     arrivalTime: arrival_time,
     departureTime: departure_time,
+    startDate: start_date,
+    endDate: end_date,
     masterBedroomConfig: master_bedroom_config,
     middleBedroomConfig: middle_bedroom_config,
     firstBedroomConfig: first_bedroom_config,
@@ -733,6 +740,8 @@ function buildCalendarDescription({
   notes,
   arrivalTime,
   departureTime,
+  startDate,
+  endDate,
   masterBedroomConfig,
   middleBedroomConfig,
   firstBedroomConfig,
@@ -742,8 +751,12 @@ function buildCalendarDescription({
   if (whoGoing && String(whoGoing).trim()) {
     lines.push(`${labelStatus(status)} - ${String(whoGoing).trim()}`);
   }
-  if (arrivalTime) lines.push(`Arrival time at flat: ${arrivalTime}`);
-  if (departureTime) lines.push(`Flat leave time: ${departureTime}`);
+  // Day & date in front of the time of day ("Sun, 27 Sep 2026 (15:00)")
+  // rather than the time on its own — same as the Google Calendar
+  // description built in calendarSync.js, so the two agree. Still only
+  // shown at all when a time was actually given, same as before.
+  if (arrivalTime) lines.push(`Arrival time at flat: ${fmtDateTimeLine(startDate, arrivalTime)}`);
+  if (departureTime) lines.push(`Flat leave time: ${fmtDateTimeLine(endDate, departureTime)}`);
   if (masterBedroomConfig) lines.push(`Master bedroom: ${masterBedroomConfig}`);
   if (middleBedroomConfig) lines.push(`Middle bedroom: ${middleBedroomConfig}`);
   if (firstBedroomConfig) lines.push(`1st bedroom: ${firstBedroomConfig}`);
@@ -757,6 +770,8 @@ function formatBookingDescription({
   status,
   arrivalTime,
   departureTime,
+  startDate,
+  endDate,
   masterBedroomConfig,
   middleBedroomConfig,
   firstBedroomConfig,
@@ -770,8 +785,8 @@ function formatBookingDescription({
   }
 
   const lines = [`${labelStatus(status)} - ${guestName}`];
-  if (arrivalTime) lines.push(`Arrival time: ${arrivalTime}`);
-  if (departureTime) lines.push(`Leave time: ${departureTime}`);
+  if (arrivalTime) lines.push(`Arrival time: ${fmtDateTimeLine(startDate, arrivalTime)}`);
+  if (departureTime) lines.push(`Leave time: ${fmtDateTimeLine(endDate, departureTime)}`);
   if (masterBedroomConfig) lines.push(`Master bedroom: ${masterBedroomConfig}`);
   if (middleBedroomConfig) lines.push(`Middle bedroom: ${middleBedroomConfig}`);
   if (firstBedroomConfig) lines.push(`1st bedroom: ${firstBedroomConfig}`);

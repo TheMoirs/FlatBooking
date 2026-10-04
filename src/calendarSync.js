@@ -368,4 +368,5 @@ module.exports = {
   deriveGoogleEventIdFromUid,
   googleCalendarEventStillExists,
   checkGoogleCalendarWriteAccess,
+  fmtDateTimeLine,
 };

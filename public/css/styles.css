@@ -366,6 +366,10 @@ section.tight { padding: 48px 0; }
   overflow: hidden;
 }
 .cal-grid .day .date-number { line-height: 1; font-size: 1rem; }
+/* A booked day has to fit the date number and the guest-name note in the
+   same small box — shrinking the number here gives the note more room to
+   actually be legible, especially on a phone-width grid. */
+.cal-grid .day.booked .date-number { font-size: 0.8rem; }
 .cal-grid .day .date-note {
   margin-top: 4px;
   font-size: 0.62rem;
