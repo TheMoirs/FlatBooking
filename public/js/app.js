@@ -435,6 +435,29 @@ function initLightbox(images) {
   });
 }
 
+// Below the breakpoint where .main-nav is hidden (see styles.css), this
+// toggle button shows/hides it as a dropdown instead — present only on the
+// pages that have a .main-nav to begin with (availability.html and
+// agent-bookings.html don't), so both lookups are defensive.
+function initMobileNav() {
+  const toggle = document.getElementById('nav-toggle');
+  const nav = document.querySelector('.main-nav');
+  if (!toggle || !nav) return;
+  toggle.addEventListener('click', () => {
+    const isOpen = nav.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', String(isOpen));
+  });
+  // Picking a link closes the menu — otherwise it stays open over the page
+  // after an in-page anchor jump (e.g. #costs), covering the content.
+  nav.querySelectorAll('a').forEach((a) => {
+    a.addEventListener('click', () => {
+      nav.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initSession();
+  initMobileNav();
 });
