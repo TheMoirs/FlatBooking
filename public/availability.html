@@ -20,8 +20,8 @@
 
 <div class="container" style="padding:48px 24px 80px">
   <h1 style="margin-bottom:8px">Availability</h1>
-  <p style="color:var(--ink-soft);margin-bottom:8px">Pick a check-in date, then a check-out date from the available (unshaded) days.</p>
-  <p id="avail-login-note" style="display:none;color:var(--ink-soft);font-size:0.9rem;margin-bottom:28px"><a href="#" id="avail-login-link">Log in</a> to book these dates.</p>
+  <p id="avail-intro" style="color:var(--ink-soft);margin-bottom:8px">Pick a check-in date, then a check-out date from the available (unshaded) days.</p>
+  <p id="avail-login-note" style="display:none;color:var(--ink-soft);font-size:0.9rem;margin-bottom:28px"><a href="https://flatbooking.onrender.com/availability.html#" id="avail-login-link">Log in</a> to book holiday dates.</p>
 
   <div class="calendar-card" style="max-width:760px">
     <div class="calendar-toolbar">
@@ -165,6 +165,7 @@
     if (!user) {
       document.getElementById('avail-book-btn').remove();
       document.getElementById('avail-reset-btn').remove();
+      document.getElementById('avail-intro').remove();
       document.getElementById('avail-login-note').style.display = 'block';
     }
     await loadAvailCalendar();
