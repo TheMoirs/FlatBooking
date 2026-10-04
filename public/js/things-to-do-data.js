@@ -77,28 +77,7 @@ const THINGS_TO_DO = {
         { name: "Golf Courses", note: "There are loads! Need to pre-book well in advance", site: "https://www.costalessgolf.com/lowest-green-fees/?tour_destination=costa-del-sol" },
         { name: "Bikestardo", note: "Bike hire, tracks & guided tours — will deliver to flat", site: "https://www.bikestardo.com/Tracks" },
         { name: "Legends Showbar, La Cala", note: "Music tributes — 10 mins by car", site: "https://www.facebook.com/legendslacala/", map: "https://goo.gl/maps/kBW3cCtXBXsHKR627" },
-        { name: "The Casbah Live Lounge, Torrenueva", note: "8 mins by car", site: "https://m.facebook.com/TheCazbahLiveLounge", map: "https://maps.app.goo.gl/TLnaWXSYambR249eA" }
-      ]},
-      { heading: "Day trips", items: [
-        { name: "Gibraltar", note: "Cable car ride — 1 hr 20 mins by car", site: "https://www.visitgibraltar.gi/", map: "https://goo.gl/maps/HdZMwYHU2o5qEVEfA" },
-        { name: "Cordoba", note: "2 hours by car", site: "https://www.spain.info/en/destination/cordoba/", map: "https://maps.app.goo.gl/XZXKdS97DNNPSk6W9" },
-        { name: "Ronda", note: "1 hr 20 mins by car", site: "https://www.andalucia.org/en/ronda", map: "https://maps.app.goo.gl/Qxc2gYFGMqNkbmuu7" },
-        { name: "El Caminito del Rey", note: "€10, or €18 with guide — walkway pinned along the walls of a narrow gorge — 1 hr 10 mins by car. Park at South Exit (El Chorro) & get the bus to the North Exit (start), so you finish at your car.", site: "https://www.caminitodelrey.info/en/tickets/buy", map: "https://goo.gl/maps/6B4eXETFxDZBmFBi7" },
-        { name: "Setenil de las Bodegas", note: "Unique white village — 1.5 hrs drive away", site: "https://www.saltinourhair.com/spain/setenil-de-las-bodegas/" },
-        { name: "Nerja Caves", note: "€18 each — 1 hr 15 mins by car", site: "https://cuevadenerja.es/en/", map: "https://www.google.com/maps/place/Fundaci%C3%B3n+Cueva+de+Nerja/@36.7616268,-3.8505877,16z" }
-      ]},
-      { heading: null, items: [
-        { name: "Visit Malaga Old Town & castle", note: "45 mins by car", map: "https://goo.gl/maps/cWZAo21Prijxd5tVA" }
-      ]},
-      { heading: "Wine tours", items: [
-        { name: "Malaga Wine & Tapas Tour", note: "About €65 for 2.5 hours — 45 mins by car", site: "https://www.getyourguide.co.uk/malaga-l402/malaga-wine-and-tapas-tour-with-tastings-and-drinks-t425367/" },
-        { name: "Malaga Tapas Crawl", note: "€75 for 3 hours", site: "https://www.getyourguide.co.uk/malaga-l402/malaga-tapas-crawl-t345196/" },
-        { name: "Winery tour with lunch", note: "About €25 — 1 hr 15 mins by car", site: "https://bodegasbentomiz.com/tours-tastings-lunches/" },
-        { name: "Marbella Old Town wine & tapas tour", note: "About €90 for 3 hours", site: "https://www.getyourguide.com/en-gb/marbella-l1217/marbella-tapas-and-walking-tour-through-the-historic-centre-t605710/" }
-      ]},
-      { heading: null, items: [
-        { name: "Horse riding on the beach, Torremolinos", note: "Cortijo el Moral, from €45 — 30 mins by car", site: "https://cortijomoral.com/", map: "https://maps.app.goo.gl/k4pGaWx6iUW8r2nH6" },
-        { name: "Ride in Spain, Malaga", note: "", site: "https://ride-in-spain.com/" },
+        { name: "The Casbah Live Lounge, Torrenueva", note: "8 mins by car", site: "https://m.facebook.com/TheCazbahLiveLounge", map: "https://maps.app.goo.gl/TLnaWXSYambR249eA" },
         { name: "La Cala market at the fairground", note: "9am–2pm, every Wed & Sat — 10 mins by car", map: "https://maps.app.goo.gl/rnWDoSHWKD7YsUfB7" }
       ]},
       { heading: "Massage & facials", items: [
@@ -113,6 +92,31 @@ const THINGS_TO_DO = {
         { name: "Crazy Golf, Fuengirola", note: "18 mins by car", site: "https://fuengirolaadventuregolf.com/", map: "https://maps.app.goo.gl/Pvfs8YmjaZrwQtGRA" },
         { name: "Mijas Grand Park", note: "Children's play area, skate park, running track, pétanque pistes, lakes — 20 min drive", map: "https://maps.app.goo.gl/3eQuoSMFyNLsemt39" },
         { name: "Zip Line & Adventure Park, Malaga", note: "40 mins by car", site: "https://sunviewpark.com/", map: "https://maps.app.goo.gl/aMt921afadLuKc2P9" }
+      ]}
+    ]
+  },
+  dayTrips: {
+    title: "Day Trips",
+    intro: "",
+    groups: [
+      { heading: null, items: [
+        { name: "Gibraltar", note: "Cable car ride — 1 hr 20 mins by car", site: "https://www.visitgibraltar.gi/", map: "https://goo.gl/maps/HdZMwYHU2o5qEVEfA" },
+        { name: "Cordoba", note: "2 hours by car", site: "https://www.spain.info/en/destination/cordoba/", map: "https://maps.app.goo.gl/XZXKdS97DNNPSk6W9" },
+        { name: "Ronda", note: "1 hr 20 mins by car", site: "https://www.andalucia.org/en/ronda", map: "https://maps.app.goo.gl/Qxc2gYFGMqNkbmuu7" },
+        { name: "El Caminito del Rey", note: "€10, or €18 with guide — walkway pinned along the walls of a narrow gorge — 1 hr 10 mins by car. Park at South Exit (El Chorro) & get the bus to the North Exit (start), so you finish at your car.", site: "https://www.caminitodelrey.info/en/tickets/buy", map: "https://goo.gl/maps/6B4eXETFxDZBmFBi7" },
+        { name: "Setenil de las Bodegas", note: "Unique white village — 1.5 hrs drive away", site: "https://www.saltinourhair.com/spain/setenil-de-las-bodegas/" },
+        { name: "Nerja Caves", note: "€18 each — 1 hr 15 mins by car", site: "https://cuevadenerja.es/en/", map: "https://www.google.com/maps/place/Fundaci%C3%B3n+Cueva+de+Nerja/@36.7616268,-3.8505877,16z" }
+      ]},
+      { heading: null, items: [
+        { name: "Visit Malaga Old Town & castle", note: "45 mins by car", map: "https://goo.gl/maps/cWZAo21Prijxd5tVA" }
+      ]},
+      { heading: "Wine tours", items: [
+        { name: "Malaga Wine & Tapas Tour", note: "About €65 for 2.5 hours — 45 mins by car", site: "https://www.getyourguide.co.uk/malaga-l402/malaga-wine-and-tapas-tour-with-tastings-and-drinks-t425367/" },
+        { name: "Malaga Tapas Crawl", note: "€75 for 3 hours", site: "https://www.getyourguide.co.uk/malaga-l402/malaga-tapas-crawl-t345196/" },
+        { name: "Winery tour with lunch", note: "About €25 — 1 hr 15 mins by car", site: "https://bodegasbentomiz.com/tours-tastings-lunches/" },
+        { name: "Marbella Old Town wine & tapas tour", note: "About €90 for 3 hours", site: "https://www.getyourguide.com/en-gb/marbella-l1217/marbella-tapas-and-walking-tour-through-the-historic-centre-t605710/" },
+        { name: "Horse riding on the beach, Torremolinos", note: "Cortijo el Moral, from €45 — 30 mins by car", site: "https://cortijomoral.com/", map: "https://maps.app.goo.gl/k4pGaWx6iUW8r2nH6" },
+        { name: "Ride in Spain, Malaga", note: "", site: "https://ride-in-spain.com/" }
       ]}
     ]
   }

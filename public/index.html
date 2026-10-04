@@ -142,8 +142,8 @@
       const { daily_rate, cleaning_fee_1_room, cleaning_fee_2_rooms } = await Api.charges();
       const rows = [
         ['Nightly rate', daily_rate, 'per night, for the whole flat', 'Insurance, electricity, broadband, water, community fees, rubbish removal, council tax, property tax &amp; property management'],
-        ['Cleaning &amp; laundry — 1 room used', cleaning_fee_1_room, 'once per visit', 'End-of-stay clean and laundry'],
-        ['Cleaning &amp; laundry — 2+ rooms used', cleaning_fee_2_rooms, 'once per visit', 'End-of-stay clean and laundry'],
+        ['Cleaning &amp; laundry<br>1 room used', cleaning_fee_1_room, 'once per visit', 'End-of-stay clean and laundry'],
+        ['Cleaning &amp; laundry<br>2+ rooms used', cleaning_fee_2_rooms, 'once per visit', 'End-of-stay clean and laundry'],
       ];
       body.innerHTML = rows
         .map(([label, amount, per, covers]) => `
