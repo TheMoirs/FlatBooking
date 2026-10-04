@@ -427,6 +427,47 @@ section.tight { padding: 48px 0; }
   box-shadow: inset 0 0 0 2px var(--sea);
 }
 
+/* Tap-to-view popup for a booked calendar day (mainly for touch devices,
+   which have no hover state to show the PC tooltip) */
+.cal-popup-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1000;
+}
+.cal-popup-overlay.show { display: flex; }
+.cal-popup {
+  position: relative;
+  background: var(--white, #fff);
+  border-radius: 10px;
+  padding: 28px 24px 24px;
+  max-width: 320px;
+  width: 100%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+.cal-popup-body {
+  white-space: pre-line;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.cal-popup-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--ink-soft);
+  padding: 4px 8px;
+}
+.cal-popup-close:hover { color: var(--ink); }
+
 /* ---------------- Costs ---------------- */
 
 .cost-table {

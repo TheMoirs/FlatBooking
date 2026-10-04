@@ -25,6 +25,15 @@ function escapeHtml(value) {
     .replace(/'/g, '&#039;');
 }
 
+// The day box shows its status via colour already (see .cal-grid
+// .day.booked.status-* in styles.css), so repeating "Confirmed - " /
+// "Provisional - " in the on-box text just crowds out the guest name and
+// overflows the box. Strip it for that short text only — the full
+// description (hover tooltip, tap-to-view popup) keeps it.
+function stripStatusPrefix(line) {
+  return String(line).replace(/^(Confirmed|Provisional)\s*[-:]\s*/i, '');
+}
+
 function renderMonthGrid(year, month, ranges = [], options = {}) {
   const today = new Date().toISOString().slice(0, 10);
   const first = new Date(year, month, 1);
@@ -71,8 +80,13 @@ function renderMonthGrid(year, month, ranges = [], options = {}) {
       if (isSelectionPart && options.selectionVariant) classes.push(`variant-${options.selectionVariant}`);
       html += `<div class="${classes.join(' ')}" data-date="${dateStr}" role="button" tabindex="0"><span class="date-number">${day}</span></div>`;
     } else if (occupied.length) {
-      const hoverText = description ? description.replace(/\n/g, ' • ') : 'Booked';
-      html += `<div class="${classes.join(' ')}" title="${escapeHtml(hoverText)}"><span class="date-number">${day}</span><span class="date-note">${escapeHtml(description ? description.split('\n')[0] : 'Booked')}</span></div>`;
+      // Keep the real line breaks (rather than flattening them with a
+      // separator) for both the native hover tooltip on a PC — which
+      // renders literal "\n"s on its own — and the tap-to-view popup on
+      // touch devices.
+      const fullText = description || 'Booked';
+      const noteText = description ? stripStatusPrefix(description.split('\n')[0]) : 'Booked';
+      html += `<div class="${classes.join(' ')}" title="${escapeHtml(fullText)}" data-full-desc="${escapeHtml(fullText)}"><span class="date-number">${day}</span><span class="date-note">${escapeHtml(noteText)}</span></div>`;
     } else {
       html += `<div class="${classes.join(' ')}"><span class="date-number">${day}</span></div>`;
     }
@@ -101,4 +115,41 @@ function renderCalendarMonths(container, year, startMonth, count, ranges = [], o
       });
     });
   }
+  // A tap on a booked day shows the same extended description a PC gets on
+  // hover, with an X to dismiss — mainly for touch devices, which have no
+  // hover state at all. Bound once per container (re-rendering the grid
+  // replaces the day elements but the container itself persists).
+  if (!container.dataset.popupBound) {
+    container.dataset.popupBound = '1';
+    container.addEventListener('click', (e) => {
+      const dayEl = e.target.closest('.day.booked');
+      if (dayEl) showBookingPopup(dayEl.dataset.fullDesc);
+    });
+  }
+}
+
+let bookingPopupEl = null;
+function ensureBookingPopup() {
+  if (bookingPopupEl) return bookingPopupEl;
+  const overlay = document.createElement('div');
+  overlay.className = 'cal-popup-overlay';
+  overlay.innerHTML =
+    '<div class="cal-popup" role="dialog" aria-modal="true">' +
+      '<button type="button" class="cal-popup-close" aria-label="Close">&times;</button>' +
+      '<div class="cal-popup-body"></div>' +
+    '</div>';
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) hideBookingPopup(); });
+  overlay.querySelector('.cal-popup-close').addEventListener('click', hideBookingPopup);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideBookingPopup(); });
+  document.body.appendChild(overlay);
+  bookingPopupEl = overlay;
+  return overlay;
+}
+function showBookingPopup(text) {
+  const overlay = ensureBookingPopup();
+  overlay.querySelector('.cal-popup-body').textContent = text || 'Booked';
+  overlay.classList.add('show');
+}
+function hideBookingPopup() {
+  if (bookingPopupEl) bookingPopupEl.classList.remove('show');
 }
