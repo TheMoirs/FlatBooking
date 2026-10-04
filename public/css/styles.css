@@ -522,10 +522,23 @@ section.tight { padding: 48px 0; }
 .todo-page-hero {
   background: var(--sea-deep);
   color: var(--white);
-  padding: 56px 0 40px;
+  padding: 26px 0 20px;
 }
-.todo-page-hero h1 { color: var(--white); }
-.todo-jump { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+.todo-page-hero h1 { color: var(--white); font-size: 1.6rem; margin-bottom: 4px; }
+.todo-page-hero p { margin-bottom: 0; }
+
+/* Pinned just below the (also sticky) site header, so the jump links stay
+   reachable while scrolling through a long list — a solid background is
+   needed here (unlike the header's translucent blur) since it's dark text
+   on a dark bar, not a blur over light page content. */
+.todo-jump-bar {
+  position: sticky;
+  top: 66px;
+  z-index: 35;
+  background: var(--sea-deep);
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+}
+.todo-jump { display: flex; gap: 10px; flex-wrap: wrap; padding: 12px 0; }
 .todo-jump a {
   color: var(--white);
   text-decoration: none;
@@ -536,14 +549,14 @@ section.tight { padding: 48px 0; }
 }
 .todo-jump a:hover { background: rgba(255,255,255,0.12); }
 
-.todo-group { margin-bottom: 30px; }
-.todo-group h4 { color: var(--terracotta); font-family: var(--sans); font-weight: 700; font-size: 0.95rem; margin-bottom: 12px; }
+.todo-group { margin-bottom: 20px; }
+.todo-group h4 { color: var(--terracotta); font-family: var(--sans); font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; }
 .todo-items { list-style: none; margin: 0; padding: 0; }
 .todo-item {
   display: flex;
   justify-content: space-between;
   gap: 20px;
-  padding: 14px 0;
+  padding: 8px 0;
   border-bottom: 1px solid var(--line);
 }
 .todo-item .who { max-width: 60ch; }
@@ -708,4 +721,12 @@ section.tight { padding: 48px 0; }
   .gallery .wide { grid-column: span 2; }
   .main-nav { display: none; }
   .todo-item { flex-direction: column; }
+}
+
+/* Below ~455px the brand name wraps onto two lines (no room beside the
+   Log in / Book Now buttons once .main-nav is hidden above), growing the
+   sticky header from ~66px to ~95px tall — the jump bar's sticky offset
+   has to grow to match, or it sticks partway under the taller header. */
+@media (max-width: 455px) {
+  .todo-jump-bar { top: 96px; }
 }
