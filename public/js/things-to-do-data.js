@@ -8,7 +8,7 @@ const THINGS_TO_DO = {
       {
         heading: null,
         items: [
-          { name: "Dos Leones", note: "Great steaks — next door to the left", map: "https://goo.gl/maps/eqJCJpf9dHm11PJt9" },
+          { name: "Dos Leones", note: "Great steaks — next door to the left (use this as collect / drop-off for taxis)", map: "https://goo.gl/maps/eqJCJpf9dHm11PJt9" },
           { name: "Da Bruno a Cabopino", note: "6 mins by car", site: "https://www.dabruno.com/en-cabopino", map: "https://g.page/restaurante-en-marbella?share" },
           { name: "La Pergola", note: "Italian, Torrenueva — 8 mins by car", site: "https://lapergolalacala.com/", map: "https://goo.gl/maps/CAJ7kCVp4pm5Mmed9" },
           { name: "Geranium", note: "La Cala — 10 mins by car", site: "https://thenewgeranium.com/", map: "https://maps.app.goo.gl/2uhDwaodF1Hq4ruQ8" },
@@ -43,7 +43,7 @@ const THINGS_TO_DO = {
     groups: [
       { heading: null, items: [
         { name: "La Siesta Golf", note: "9-hole Pitch & Putt (€22) plus driving range — next door", site: "https://www.clubdegolflasiesta.com/" },
-        { name: "Club del Sol", note: "Tennis, squash, gym & cafe — across the road", site: "https://www.tenniscostadelsol.com/" },
+        { name: "Club del Sol", note: "Tennis, squash, padel, gym & cafe — across the road", site: "https://www.tenniscostadelsol.com/" },
         { name: "Mijas Pueblo", note: "Pretty white village to walk around, eat & drink — 25 mins by car", site: "https://www.tripadvisor.co.uk/Attractions-g4424512-Activities-Mijas_Pueblo_Mijas_Costa_del_Sol_Province_of_Malaga_Andalucia.html", map: "https://www.google.com/maps/place/Mijas+Pueblo,+29650+Mijas,+M%C3%A1laga,+Spain/@36.5963609,-4.6417572,16z" },
         { name: "Mijas Pueblo Walking Tour", note: "About €10 — WhatsApp Alan Boardman +34 610 522605", site: "https://www.facebook.com/mijaswalkingtours" },
         { name: "Visit Marbella", note: "Shops, restaurants, Old Town & marina — 20 mins by car", map: "https://goo.gl/maps/h9N5pKqvxjhBamSN8" },
@@ -65,7 +65,8 @@ const THINGS_TO_DO = {
         { name: "Walk the boardwalk (Senda Litoral), La Cala to Cabopino", note: "About 7km (1.5 hrs) each way", site: "https://visitfuengirola.com/hike-on-the-senda-litoral-from-mijas-to-cabopino/" },
         { name: "Crazy Golf, Fuengirola", note: "18 mins by car", site: "https://fuengirolaadventuregolf.com/", map: "https://maps.app.goo.gl/Pvfs8YmjaZrwQtGRA" },
         { name: "Mijas Grand Park", note: "Children's play area, skate park, running track, pétanque pistes, lakes — 20 min drive", map: "https://maps.app.goo.gl/3eQuoSMFyNLsemt39" },
-        { name: "Zip Line & Adventure Park, Malaga", note: "40 mins by car", site: "https://sunviewpark.com/", map: "https://maps.app.goo.gl/aMt921afadLuKc2P9" }
+        { name: "Zip Line & Adventure Park, Malaga", note: "40 mins by car", site: "https://sunviewpark.com/", map: "https://maps.app.goo.gl/aMt921afadLuKc2P9" },
+        { name: "Horse riding on the beach, Torremolinos", note: "Cortijo el Moral, from €45 — 30 mins by car", site: "https://cortijomoral.com/", map: "https://maps.app.goo.gl/k4pGaWx6iUW8r2nH6" }
       ]},
       { heading: "Beaches", items: [
         { name: "El Bombo Beach", note: "Water sports & beach restaurants — 6 mins by car, or 1 hr walk", map: "https://goo.gl/maps/XA3Zxzz4Q7HtoKqK8" },
@@ -83,6 +84,7 @@ const THINGS_TO_DO = {
         { name: "Spa treatments at Oceano Hotel", note: "", site: "https://www.oceanohotel.com/beauty-salon/treatments-prices" }
       ]},
       { heading: "Live Music", items: [
+        { name: "La Placita", note: "Early evening live music", site: "https://www.facebook.com/p/La-Placita-Calahonda-61568220194754/?checkpoint_src=any" },
         { name: "Legends Showbar, La Cala", note: "Music tributes — 10 mins by car", site: "https://www.facebook.com/legendslacala/", map: "https://goo.gl/maps/kBW3cCtXBXsHKR627" },
         { name: "The Casbah Live Lounge, Torrenueva", note: "8 mins by car", site: "https://m.facebook.com/TheCazbahLiveLounge", map: "https://maps.app.goo.gl/TLnaWXSYambR249eA" }
       ]}
@@ -107,9 +109,7 @@ const THINGS_TO_DO = {
         { name: "Malaga Wine & Tapas Tour", note: "About €65 for 2.5 hours — 45 mins by car", site: "https://www.getyourguide.co.uk/malaga-l402/malaga-wine-and-tapas-tour-with-tastings-and-drinks-t425367/" },
         { name: "Malaga Tapas Crawl", note: "€75 for 3 hours", site: "https://www.getyourguide.co.uk/malaga-l402/malaga-tapas-crawl-t345196/" },
         { name: "Winery tour with lunch", note: "About €25 — 1 hr 15 mins by car", site: "https://bodegasbentomiz.com/tours-tastings-lunches/" },
-        { name: "Marbella Old Town wine & tapas tour", note: "About €90 for 3 hours", site: "https://www.getyourguide.com/en-gb/marbella-l1217/marbella-tapas-and-walking-tour-through-the-historic-centre-t605710/" },
-        { name: "Horse riding on the beach, Torremolinos", note: "Cortijo el Moral, from €45 — 30 mins by car", site: "https://cortijomoral.com/", map: "https://maps.app.goo.gl/k4pGaWx6iUW8r2nH6" },
-        { name: "Ride in Spain, Malaga", note: "", site: "https://ride-in-spain.com/" }
+        { name: "Marbella Old Town wine & tapas tour", note: "About €90 for 3 hours", site: "https://www.getyourguide.com/en-gb/marbella-l1217/marbella-tapas-and-walking-tour-through-the-historic-centre-t605710/" }
       ]}
     ]
   }
