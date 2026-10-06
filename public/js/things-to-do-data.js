@@ -85,7 +85,7 @@ const THINGS_TO_DO = {
         { name: "Spa treatments at Oceano Hotel", note: "", site: "https://www.oceanohotel.com/beauty-salon/treatments-prices" }
       ]},
       { heading: "Live Music", items: [
-        { name: "La Placita", note: "Early evening live music", site: "https://www.facebook.com/p/La-Placita-Calahonda-61568220194754/?checkpoint_src=any", map: "https://maps.app.goo.gl/gX88dK7HLgDZpREC8" },
+        { name: "La Placita", note: "Early evening live music — 5 mins by car", site: "https://www.facebook.com/p/La-Placita-Calahonda-61568220194754/?checkpoint_src=any", map: "https://maps.app.goo.gl/gX88dK7HLgDZpREC8" },
         { name: "Legends Showbar, La Cala", note: "Music tributes — 10 mins by car", site: "https://www.facebook.com/legendslacala/", map: "https://goo.gl/maps/kBW3cCtXBXsHKR627" },
         { name: "The Casbah Live Lounge, Torrenueva", note: "8 mins by car", site: "https://m.facebook.com/TheCazbahLiveLounge", map: "https://maps.app.goo.gl/TLnaWXSYambR249eA" }
       ]}
