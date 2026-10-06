@@ -762,3 +762,8 @@ section.tight { padding: 48px 0; }
   .todo-jump a { padding: 5px 11px; font-size: 0.8rem; }
   .todo-section { scroll-margin-top: 150px; }
 }
+
+/* Request a stay: fields left unfilled when saving are flagged. */
+.field.missing > label:first-child { color: #B3261E; }
+.field.missing > label:first-child::after { content: " — required"; font-weight: 400; }
+.field.missing input[type="text"] { border-color: #B3261E; }

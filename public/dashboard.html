@@ -15,9 +15,9 @@
     </a>
     <nav class="main-nav">
       <a href="/#about">The Flat</a>
+      <a href="/#costs">Costs</a>
       <a href="/#gallery">Photos</a>
       <a href="/availability.html" target="_blank" rel="noopener">Availability</a>
-      <a href="/#costs">Costs</a>
       <a href="/things-to-do.html">Things to do</a>
     </nav>
     <div class="nav-account" id="nav-account"></div>
@@ -65,7 +65,7 @@
       <div style="margin-top:20px;max-width:540px">
         <div class="form-error" id="booking-error"></div>
         <div class="form-ok" id="booking-ok"></div>
-        <p id="selection-summary" style="font-weight:600"></p>
+        <p id="selection-summary" style="font-weight:600;white-space:pre-line"></p>
 
         <div class="field">
           <label for="who-going">Who’s going?</label>
@@ -91,7 +91,7 @@
         <div class="field">
           <label>Master bedroom configuration</label>
           <div class="radio-row">
-            <label><input type="radio" name="master-bedroom-config" value="Double" checked /> Double</label>
+            <label><input type="radio" name="master-bedroom-config" value="Double" /> Double</label>
             <label><input type="radio" name="master-bedroom-config" value="Twin Singles" /> Twin Singles</label>
           </div>
         </div>
@@ -100,7 +100,7 @@
           <div class="radio-row">
             <label><input type="radio" name="middle-bedroom-config" value="Double" /> Double</label>
             <label><input type="radio" name="middle-bedroom-config" value="Twin Singles" /> Twin Singles</label>
-            <label><input type="radio" name="middle-bedroom-config" value="Not Required" checked /> Not Required</label>
+            <label><input type="radio" name="middle-bedroom-config" value="Not Required" /> Not Required</label>
           </div>
         </div>
         <div class="field">
@@ -108,14 +108,14 @@
           <div class="radio-row">
             <label><input type="radio" name="first-bedroom-config" value="Double" /> Double</label>
             <label><input type="radio" name="first-bedroom-config" value="Twin Singles" /> Twin Singles</label>
-            <label><input type="radio" name="first-bedroom-config" value="Not Required" checked /> Not Required</label>
+            <label><input type="radio" name="first-bedroom-config" value="Not Required" /> Not Required</label>
           </div>
         </div>
         <div class="field">
           <label>Sofa bed required?</label>
           <div class="radio-row">
             <label><input type="radio" name="sofa-bed-required" value="Yes" /> Yes</label>
-            <label><input type="radio" name="sofa-bed-required" value="No" checked /> No</label>
+            <label><input type="radio" name="sofa-bed-required" value="No" /> No</label>
           </div>
         </div>
 
@@ -123,7 +123,7 @@
           <label for="booking-notes">Anything we should know? (optional)</label>
           <textarea id="booking-notes" rows="3"></textarea>
         </div>
-        <button class="btn btn-primary" id="submit-booking-btn" disabled>Request these dates</button>
+        <button class="btn btn-primary" id="submit-booking-btn">Request these dates</button>
         <button class="btn btn-ghost btn-small" id="reset-selection-btn" style="margin-left:8px">Clear selection</button>
       </div>
     </div>
@@ -191,6 +191,29 @@
     <button class="close-x" id="details-modal-close" aria-label="Close">&times;</button>
     <h3 id="details-modal-title">Booking details</h3>
     <pre id="details-modal-body" style="white-space:pre-wrap;font-family:inherit;font-size:0.95rem;line-height:1.6;margin:0"></pre>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="confirm-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+    <h3 id="confirm-modal-title">Please check your booking</h3>
+    <div id="confirm-step-1">
+      <p class="sub">This is what will be saved. Confirm it, go back and edit it, or cancel.</p>
+      <pre id="confirm-modal-body" style="white-space:pre-wrap;font-family:inherit;font-size:0.95rem;line-height:1.6;margin:0 0 20px"></pre>
+      <div class="form-error" id="confirm-error"></div>
+      <button class="btn btn-primary" id="confirm-yes-btn" type="button">Confirm</button>
+      <button class="btn btn-ghost" id="confirm-edit-btn" type="button" style="margin-left:8px">Edit</button>
+      <button class="btn btn-ghost" id="confirm-cancel-btn" type="button" style="margin-left:8px">Cancel</button>
+    </div>
+    <div id="confirm-step-2" style="display:none">
+      <p id="confirm-done-msg" style="margin-bottom:12px"></p>
+      <p><strong>Would you like to save this stay to your own calendar?</strong></p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+        <a class="btn btn-primary" id="cal-google-link" target="_blank" rel="noopener">Google Calendar</a>
+        <button class="btn btn-ghost" id="cal-ics-btn" type="button">Apple / Outlook (.ics)</button>
+        <button class="btn btn-ghost" id="cal-no-btn" type="button">No thanks</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -414,31 +437,36 @@
   // bedroomConfig is optional — {master, middle, first} — and only needed
   // to work out the cleaning charge; without it (or without rates set up
   // yet) the line just stops after whichever figures are available.
-  function fmtRange(start, end, bedroomConfig) {
+  // Returns the dates/nights line and the costs figures separately, so the
+  // New booking page can show the costs on their own "Costs:" line.
+  function fmtRangeParts(start, end, bedroomConfig) {
     const s = new Date(start), e = new Date(end);
     const opts = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
     const nights = nightsBetween(start, end);
-    let text = `${s.toLocaleDateString('en-GB', opts)} → ${e.toLocaleDateString('en-GB', opts)} · ${fmtNights(nights)}`;
+    const dates = `${s.toLocaleDateString('en-GB', opts)} → ${e.toLocaleDateString('en-GB', opts)} · ${fmtNights(nights)}`;
+    const costs = [];
 
     let nightlyCharge = null;
     if (dailyRate !== null && !Number.isNaN(dailyRate)) {
       nightlyCharge = nights * dailyRate;
-      text += ` · ${fmtGBP(nightlyCharge)}`;
+      costs.push(fmtGBP(nightlyCharge));
     }
 
     let cleaning = null;
     if (bedroomConfig) {
       cleaning = cleaningChargeFor(bedroomConfig);
-      if (cleaning !== null) {
-        text += ` · Cleaning ${fmtGBP(cleaning)}`;
-      }
+      if (cleaning !== null) costs.push(`Cleaning ${fmtGBP(cleaning)}`);
     }
 
     if (nightlyCharge !== null && cleaning !== null) {
-      text += ` · Total ${fmtGBP(nightlyCharge + cleaning)}`;
+      costs.push(`Total ${fmtGBP(nightlyCharge + cleaning)}`);
     }
+    return { dates, costs: costs.join(' · ') };
+  }
 
-    return text;
+  function fmtRange(start, end, bedroomConfig) {
+    const { dates, costs } = fmtRangeParts(start, end, bedroomConfig);
+    return costs ? `${dates} · ${costs}` : dates;
   }
 
   function isEditable(b) {
@@ -683,18 +711,26 @@
     };
   }
 
+  // Cleaning is only worked out once every bedroom option has been picked —
+  // none are pre-selected, so there's nothing to price before that.
+  function bookingConfigIfComplete() {
+    const c = currentBedroomConfig('');
+    return (c.master && c.middle && c.first) ? c : null;
+  }
+
+  function summaryText(start, end) {
+    const { dates, costs } = fmtRangeParts(start, end, bookingConfigIfComplete());
+    return costs ? `${dates}\nCosts: ${costs}` : dates;
+  }
+
   function updateSelectionSummary() {
     const summary = document.getElementById('selection-summary');
-    const submitBtn = document.getElementById('submit-booking-btn');
     if (bookingCal.start && bookingCal.end) {
-      summary.textContent = `${fmtRange(bookingCal.start, bookingCal.end, currentBedroomConfig(''))}`;
-      submitBtn.disabled = false;
+      summary.textContent = summaryText(bookingCal.start, bookingCal.end);
     } else if (bookingCal.start) {
       summary.textContent = `Check-in: ${bookingCal.start} — now pick a check-out date`;
-      submitBtn.disabled = true;
     } else {
       summary.textContent = '';
-      submitBtn.disabled = true;
     }
   }
   ['master-bedroom-config', 'middle-bedroom-config', 'first-bedroom-config'].forEach((name) => {
@@ -715,62 +751,208 @@
     bookingCal.start = null; bookingCal.end = null; drawBookingCalendar();
   });
 
-  document.getElementById('submit-booking-btn').addEventListener('click', async () => {
+  /* -------- Request a stay: validate, confirm, save, offer calendar -------- */
+
+  function radioValue(name) {
+    return document.querySelector(`input[name="${name}"]:checked`)?.value || '';
+  }
+
+  // Everything except the comments box is mandatory. Returns the values plus
+  // the labels of whatever hasn't been filled in or selected.
+  function readBookingForm() {
+    const v = {
+      start: bookingCal.start,
+      end: bookingCal.end,
+      whoGoing: document.getElementById('who-going').value.trim(),
+      arrival: radioValue('arrival-time'),
+      leave: radioValue('leave-time'),
+      master: radioValue('master-bedroom-config'),
+      middle: radioValue('middle-bedroom-config'),
+      first: radioValue('first-bedroom-config'),
+      sofa: radioValue('sofa-bed-required'),
+      notes: document.getElementById('booking-notes').value.trim(),
+    };
+    const checks = [
+      ['Check-in and check-out dates', v.start && v.end, document.getElementById('selection-summary')],
+      ['Who’s going?', v.whoGoing, document.getElementById('who-going')],
+      ['Arrival time at flat', v.arrival, document.querySelector('input[name="arrival-time"]')],
+      ['Flat leave time', v.leave, document.querySelector('input[name="leave-time"]')],
+      ['Master bedroom configuration', v.master, document.querySelector('input[name="master-bedroom-config"]')],
+      ['Middle bedroom configuration', v.middle, document.querySelector('input[name="middle-bedroom-config"]')],
+      ['1st bedroom configuration', v.first, document.querySelector('input[name="first-bedroom-config"]')],
+      ['Sofa bed required?', v.sofa, document.querySelector('input[name="sofa-bed-required"]')],
+    ];
+    document.querySelectorAll('#panel-new-booking .field.missing').forEach((el) => el.classList.remove('missing'));
+    const missing = [];
+    checks.forEach(([label, ok, el]) => {
+      if (ok) return;
+      missing.push(label);
+      const field = el && el.closest('.field');
+      if (field) field.classList.add('missing');
+    });
+    return { v, missing };
+  }
+
+  // The same lines the saved booking description will contain.
+  function bookingDetailsText(v) {
+    const lines = [];
+    lines.push(`Provisional - ${v.whoGoing}`);
+    lines.push(`Arrival time at flat: ${fmtDateTimeLine(v.start, v.arrival)}`);
+    lines.push(`Flat leave time: ${fmtDateTimeLine(v.end, v.leave)}`);
+    lines.push(`Master bedroom: ${v.master}`);
+    lines.push(`Middle bedroom: ${v.middle}`);
+    lines.push(`1st bedroom: ${v.first}`);
+    lines.push(`Sofa bed required: ${v.sofa}`);
+    if (v.notes) lines.push(`Notes: ${v.notes}`);
+    return lines.join('\n');
+  }
+  function bookingPreviewText(v) {
+    return `${summaryText(v.start, v.end)}\n\n${bookingDetailsText(v)}`;
+  }
+
+  function resetBookingForm() {
+    bookingCal.start = null; bookingCal.end = null;
+    document.getElementById('who-going').value = '';
+    ['arrival-time', 'leave-time', 'master-bedroom-config', 'middle-bedroom-config', 'first-bedroom-config', 'sofa-bed-required']
+      .forEach((n) => document.querySelectorAll(`input[name="${n}"]`).forEach((el) => { el.checked = false; }));
+    document.getElementById('booking-notes').value = '';
+    document.querySelectorAll('#panel-new-booking .field.missing').forEach((el) => el.classList.remove('missing'));
+    drawBookingCalendar();
+  }
+
+  let pendingBooking = null;
+
+  function openConfirmModal(v) {
+    pendingBooking = v;
+    document.getElementById('confirm-modal-title').textContent = 'Please check your booking';
+    document.getElementById('confirm-modal-body').textContent = bookingPreviewText(v);
+    document.getElementById('confirm-error').classList.remove('show');
+    document.getElementById('confirm-step-1').style.display = '';
+    document.getElementById('confirm-step-2').style.display = 'none';
+    document.getElementById('confirm-yes-btn').disabled = false;
+    document.getElementById('confirm-modal').classList.add('open');
+  }
+  function closeConfirmModal() {
+    document.getElementById('confirm-modal').classList.remove('open');
+  }
+
+  // YYYY-MM-DD + n days, as YYYYMMDD (calendar all-day events end exclusively,
+  // so the stay runs through the leave day, as on the shared calendar).
+  function compactDatePlus(dateStr, n) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d + n));
+    return dt.toISOString().slice(0, 10).replace(/-/g, '');
+  }
+  const FLAT_LOCATION = 'Mirador de Calahonda, Calahonda, Costa del Sol, Spain';
+
+  function calendarDetails(v) {
+    return bookingDetailsText(v);
+  }
+  function googleCalendarUrl(v) {
+    const p = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: 'Casa Moir, Calahonda',
+      dates: `${compactDatePlus(v.start, 0)}/${compactDatePlus(v.end, 1)}`,
+      details: calendarDetails(v),
+      location: FLAT_LOCATION,
+    });
+    return `https://calendar.google.com/calendar/render?${p.toString()}`;
+  }
+  function downloadIcs(v) {
+    const esc = (t) => t.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+    const ics = [
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Casa Moir//Booking//EN', 'BEGIN:VEVENT',
+      `UID:casamoir-${v.start}-${v.end}-${Date.now()}@flatbooking`,
+      `DTSTAMP:${stamp}`,
+      `DTSTART;VALUE=DATE:${compactDatePlus(v.start, 0)}`,
+      `DTEND;VALUE=DATE:${compactDatePlus(v.end, 1)}`,
+      `SUMMARY:${esc('Casa Moir, Calahonda')}`,
+      `LOCATION:${esc(FLAT_LOCATION)}`,
+      `DESCRIPTION:${esc(calendarDetails(v))}`,
+      'END:VEVENT', 'END:VCALENDAR',
+    ].join('\r\n');
+    const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = 'casa-moir-stay.ics';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  document.getElementById('submit-booking-btn').addEventListener('click', () => {
     const errEl = document.getElementById('booking-error');
     const okEl = document.getElementById('booking-ok');
     errEl.classList.remove('show'); okEl.classList.remove('show');
-    try {
-      const selectedMaster = document.querySelector('input[name="master-bedroom-config"]:checked')?.value || '';
-      const selectedMiddle = document.querySelector('input[name="middle-bedroom-config"]:checked')?.value || '';
-      const selectedFirst = document.querySelector('input[name="first-bedroom-config"]:checked')?.value || '';
-      const selectedSofaBed = document.querySelector('input[name="sofa-bed-required"]:checked')?.value || '';
-      const selectedArrival = document.querySelector('input[name="arrival-time"]:checked')?.value || '';
-      const selectedLeave = document.querySelector('input[name="leave-time"]:checked')?.value || '';
-      const whoGoing = document.getElementById('who-going').value.trim();
-      if (!whoGoing) {
-        throw new Error('Who’s going? is required.');
-      }
+    const { v, missing } = readBookingForm();
+    if (missing.length) {
+      errEl.textContent = `Please complete the following before requesting these dates: ${missing.join(', ')}.`;
+      errEl.classList.add('show');
+      errEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    openConfirmModal(v);
+  });
 
+  document.getElementById('confirm-edit-btn').addEventListener('click', closeConfirmModal);
+  document.getElementById('confirm-cancel-btn').addEventListener('click', () => {
+    pendingBooking = null;
+    closeConfirmModal();
+    resetBookingForm();
+  });
+
+  document.getElementById('confirm-yes-btn').addEventListener('click', async () => {
+    const v = pendingBooking;
+    if (!v) return;
+    const errEl = document.getElementById('booking-error');
+    const okEl = document.getElementById('booking-ok');
+    const modalErr = document.getElementById('confirm-error');
+    const yesBtn = document.getElementById('confirm-yes-btn');
+    modalErr.classList.remove('show');
+    yesBtn.disabled = true;
+    try {
       const result = await Api.createBooking({
-        start_date: bookingCal.start,
-        end_date: bookingCal.end,
-        who_going: whoGoing,
-        arrival_time: selectedArrival || null,
-        departure_time: selectedLeave || null,
-        master_bedroom_config: selectedMaster,
-        middle_bedroom_config: selectedMiddle,
-        first_bedroom_config: selectedFirst,
-        sofa_bed_required: selectedSofaBed,
-        notes: document.getElementById('booking-notes').value.trim(),
+        start_date: v.start,
+        end_date: v.end,
+        who_going: v.whoGoing,
+        arrival_time: v.arrival,
+        departure_time: v.leave,
+        master_bedroom_config: v.master,
+        middle_bedroom_config: v.middle,
+        first_bedroom_config: v.first,
+        sofa_bed_required: v.sofa,
+        notes: v.notes,
       });
+      let msg;
       if (result && result.google_calendar_updated) {
-        okEl.textContent = 'Booking requested and the shared Google Calendar was updated successfully.';
+        msg = 'Booking requested and the shared Google Calendar was updated successfully.';
       } else if (result && result.google_calendar_warning) {
+        msg = 'Booking requested — it will show as provisional until an admin authorises it.';
         errEl.textContent = result.google_calendar_warning;
         errEl.classList.add('show');
       } else {
-        okEl.textContent = 'Booking requested — it will show as provisional until an admin authorises it.';
+        msg = 'Booking requested — it will show as provisional until an admin authorises it.';
       }
-      if (!(result && result.google_calendar_warning)) {
-        okEl.classList.add('show');
-      }
-      bookingCal.start = null; bookingCal.end = null;
-      document.getElementById('who-going').value = '';
-      document.querySelectorAll('input[name="arrival-time"]').forEach((el) => el.checked = false);
-      document.querySelectorAll('input[name="leave-time"]').forEach((el) => el.checked = false);
-      // Back to the usual setup (master double, others not required, no sofa
-      // bed) rather than blank, since that's what most bookings need.
-      setRadioValue('master-bedroom-config', 'Double');
-      setRadioValue('middle-bedroom-config', 'Not Required');
-      setRadioValue('first-bedroom-config', 'Not Required');
-      setRadioValue('sofa-bed-required', 'No');
-      document.getElementById('booking-notes').value = '';
+      okEl.textContent = msg;
+      okEl.classList.add('show');
+
+      // Step 2: offer to save the stay to the guest's own calendar.
+      document.getElementById('confirm-modal-title').textContent = 'Booking requested';
+      document.getElementById('confirm-done-msg').textContent = msg;
+      document.getElementById('cal-google-link').href = googleCalendarUrl(v);
+      document.getElementById('cal-ics-btn').onclick = () => downloadIcs(v);
+      document.getElementById('confirm-step-1').style.display = 'none';
+      document.getElementById('confirm-step-2').style.display = '';
+      pendingBooking = null;
+
+      resetBookingForm();
       loadBookingCalendar();
     } catch (e) {
-      errEl.textContent = e.message;
-      errEl.classList.add('show');
+      modalErr.textContent = e.message;
+      modalErr.classList.add('show');
+      yesBtn.disabled = false;
     }
   });
+  document.getElementById('cal-no-btn').addEventListener('click', closeConfirmModal);
 
   /* -------- Edit booking modal -------- */
 
