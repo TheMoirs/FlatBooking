@@ -783,3 +783,8 @@ section.tight { padding: 48px 0; }
 
 .got-questions { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); }
 .got-questions h4 { margin-bottom: 10px; font-family: var(--sans); font-size: 1.05rem; }
+
+/* Stacked variant: one full-width button per line (calendar options). */
+.action-row.stack { flex-direction: column; }
+.action-row.stack .btn { flex: 0 0 auto; width: 100%; }
+.action-row .btn { min-height: 42px; line-height: 1.2; box-sizing: border-box; }

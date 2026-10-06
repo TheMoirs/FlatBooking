@@ -109,9 +109,23 @@ function renderNav() {
   if (currentUser) {
     slot.innerHTML = `
       <span style="font-size:0.9rem;color:var(--ink-soft)">Hi, ${escapeHtml(currentUser.name.split(' ')[0])}</span>
-      <a class="btn btn-ghost btn-small" href="${currentUser.role === 'admin' ? '/dashboard.html' : '/dashboard.html?tab=my-bookings'}">${currentUser.role === 'admin' ? 'Admin' : 'My bookings'}</a>
+      <a class="btn btn-ghost btn-small" id="nav-bookings-link" href="${currentUser.role === 'admin' ? '/dashboard.html' : '/dashboard.html?tab=new-booking'}">${currentUser.role === 'admin' ? 'Admin' : 'Bookings'}</a>
       <button class="btn btn-secondary btn-small" id="logout-btn">Log out</button>
     `;
+    // "Bookings" goes to the person's existing bookings if they have any,
+    // otherwise straight to a new booking.
+    if (currentUser.role !== 'admin') {
+      const link = document.getElementById('nav-bookings-link');
+      const hasBookings = Api.myBookings()
+        .then((d) => Array.isArray(d.bookings) && d.bookings.length > 0)
+        .catch(() => false);
+      hasBookings.then((has) => { link.href = `/dashboard.html?tab=${has ? 'my-bookings' : 'new-booking'}`; });
+      link.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const has = await hasBookings;
+        window.location.href = `/dashboard.html?tab=${has ? 'my-bookings' : 'new-booking'}`;
+      });
+    }
     document.getElementById('logout-btn').addEventListener('click', async () => {
       await Api.logout();
       currentUser = null;
@@ -397,7 +411,9 @@ function hideAuthError() {
 function afterAuthSuccess() {
   closeAuthModal();
   renderNav();
-  window.location.href = postAuthRedirect || '/dashboard.html';
+  // Straight to the home page after logging in, unless they got here via
+  // "Book Now" / a date pick (postAuthRedirect).
+  window.location.href = postAuthRedirect || '/';
 }
 
 /* -------------------- Lightbox (used on index.html gallery) -------------------- */

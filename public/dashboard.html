@@ -115,7 +115,7 @@
           <label>Sofa bed required?</label>
           <div class="radio-row">
             <label><input type="radio" name="sofa-bed-required" value="Yes" /> Yes</label>
-            <label><input type="radio" name="sofa-bed-required" value="No" /> No</label>
+            <label><input type="radio" name="sofa-bed-required" value="No" checked /> No</label>
           </div>
         </div>
 
@@ -309,7 +309,7 @@
       <p id="confirm-done-msg" style="margin-bottom:12px"></p>
       <p><strong id="confirm-cal-question">Would you like to save this stay to your own calendar?</strong></p>
       <p id="confirm-cal-note" class="sub" style="display:none;margin:8px 0 0"></p>
-      <div class="action-row" style="margin-top:12px">
+      <div class="action-row stack" style="margin-top:12px">
         <a class="btn btn-primary" id="cal-google-link" target="_blank" rel="noopener">Google Calendar</a>
         <button class="btn btn-ghost" id="cal-ics-btn" type="button">Apple / Outlook (.ics)</button>
         <button class="btn btn-ghost" id="cal-no-btn" type="button">No thanks</button>
@@ -763,8 +763,11 @@
     if (bookingCal.anchorMonth > 11) { bookingCal.anchorMonth = 0; bookingCal.anchorYear += 1; }
     drawBookingCalendar();
   });
+  // Clears the whole form, not just the dates (sofa bed back to its default).
   document.getElementById('reset-selection-btn').addEventListener('click', () => {
-    bookingCal.start = null; bookingCal.end = null; drawBookingCalendar();
+    document.getElementById('booking-error').classList.remove('show');
+    document.getElementById('booking-ok').classList.remove('show');
+    resetBookingForm();
   });
 
   /* -------- Request a stay: validate, confirm, save, offer calendar -------- */
@@ -847,8 +850,10 @@
   function resetBookingForm() {
     bookingCal.start = null; bookingCal.end = null;
     document.getElementById('who-going').value = '';
-    ['arrival-time', 'leave-time', 'master-bedroom-config', 'middle-bedroom-config', 'first-bedroom-config', 'sofa-bed-required']
+    ['arrival-time', 'leave-time', 'master-bedroom-config', 'middle-bedroom-config', 'first-bedroom-config']
       .forEach((n) => document.querySelectorAll(`input[name="${n}"]`).forEach((el) => { el.checked = false; }));
+    // Sofa bed goes back to its default of No rather than blank.
+    setRadioValue('sofa-bed-required', 'No');
     document.getElementById('booking-notes').value = '';
     document.querySelectorAll('#panel-new-booking .field.missing').forEach((el) => el.classList.remove('missing'));
     drawBookingCalendar();
@@ -1011,6 +1016,9 @@
     }
   });
   document.getElementById('cal-no-btn').addEventListener('click', closeConfirmModal);
+  // Picking a calendar option closes the dialog once it's been triggered.
+  document.getElementById('cal-google-link').addEventListener('click', () => setTimeout(closeConfirmModal, 100));
+  document.getElementById('cal-ics-btn').addEventListener('click', () => setTimeout(closeConfirmModal, 100));
 
   /* -------- Edit booking modal -------- */
 
