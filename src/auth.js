@@ -60,21 +60,22 @@ function verifyPendingGoogleSignup(token) {
   return payload;
 }
 
-// Same idea as the Google one above, for "Continue with Apple" / "Continue
-// with Facebook": the provider-verified identity is packed into a short-lived
-// token while the phone number is collected.
-function signPendingSocialSignup({ provider, providerId, email, name }) {
-  return jwt.sign(
-    { purpose: 'social_signup', provider, providerId, email, name },
-    process.env.JWT_SECRET,
-    { expiresIn: PENDING_GOOGLE_SIGNUP_TTL }
-  );
+// Password-reset links: a 1-hour token tied to the current password hash, so
+// it stops working once the password has been changed (single use).
+function resetFingerprint(user) {
+  return String(user.password_hash || '').slice(-12);
 }
-
-function verifyPendingSocialSignup(token) {
+function signPasswordReset(user) {
+  return jwt.sign({ purpose: 'password_reset', id: user.id, fp: resetFingerprint(user) }, process.env.JWT_SECRET, { expiresIn: 60 * 60 });
+}
+function verifyPasswordReset(token) {
   const payload = jwt.verify(token, process.env.JWT_SECRET);
-  if (payload.purpose !== 'social_signup') throw new Error('Not a pending-signup token.');
+  if (payload.purpose !== 'password_reset') throw new Error('Not a reset token.');
   return payload;
+}
+function resetUrl(req, user) {
+  const base = process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
+  return `${base.replace(/\/$/, '')}/?reset=${encodeURIComponent(signPasswordReset(user))}`;
 }
 
 function setSessionCookie(res, user) {
@@ -150,8 +151,10 @@ module.exports = {
   promoteIfAdminEmail,
   requireAuth,
   requireAdmin,
+  signPasswordReset,
+  verifyPasswordReset,
+  resetFingerprint,
+  resetUrl,
   signPendingGoogleSignup,
   verifyPendingGoogleSignup,
-  signPendingSocialSignup,
-  verifyPendingSocialSignup,
 };

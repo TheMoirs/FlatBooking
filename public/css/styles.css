@@ -789,4 +789,3 @@ section.tight { padding: 48px 0; }
 .action-row.stack .btn { flex: 0 0 auto; width: 100%; }
 .action-row .btn { min-height: 42px; line-height: 1.2; box-sizing: border-box; }
 
-.social-btn { width: 100%; justify-content: center; margin-bottom: 10px; }

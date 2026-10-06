@@ -1,6 +1,6 @@
 const express = require('express');
 const { query } = require('../db');
-const { attachUser, requireAdmin } = require('../auth');
+const { attachUser, requireAdmin, resetUrl } = require('../auth');
 const { fetchExternalBusyRanges, deriveGoogleCalendarIdFromUrl, checkGoogleCalendarWriteAccess, deleteGoogleCalendarEvent } = require('../calendarSync');
 
 const router = express.Router();
@@ -67,8 +67,6 @@ router.get('/users', attachUser, requireAdmin, async (req, res) => {
     `SELECT u.id, u.name, u.email, u.phone, u.role, u.blocked, u.created_at,
             (u.password_hash IS NOT NULL) AS has_password,
             (u.google_id IS NOT NULL) AS has_google,
-            (u.apple_id IS NOT NULL) AS has_apple,
-            (u.facebook_id IS NOT NULL) AS has_facebook,
             (SELECT COUNT(*)::int FROM bookings b WHERE b.user_id = u.id) AS booking_count
      FROM users u
      ORDER BY lower(u.name), u.id`
@@ -123,6 +121,14 @@ async function setBlocked(req, res, blocked) {
 }
 router.post('/users/:id/block', attachUser, requireAdmin, (req, res) => setBlocked(req, res, true));
 router.post('/users/:id/unblock', attachUser, requireAdmin, (req, res) => setBlocked(req, res, false));
+
+// Gives the admin a one-hour password-reset link to pass on to the person
+// (handy when email isn't set up, or they can't find the email).
+router.post('/users/:id/reset-link', attachUser, requireAdmin, async (req, res) => {
+  const r = await query('SELECT id, password_hash FROM users WHERE id = $1', [Number(req.params.id)]);
+  if (!r.rows[0]) return res.status(404).json({ error: 'User not found.' });
+  res.json({ url: resetUrl(req, r.rows[0]) });
+});
 
 // Deleting someone also deletes their bookings (the database cascades), so
 // when they have any the request has to say so explicitly (?with_bookings=1);

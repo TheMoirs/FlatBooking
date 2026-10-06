@@ -14,6 +14,12 @@ const Api = {
   async login(payload) {
     return Api._send('/api/auth/login', payload);
   },
+  async forgotPassword(email) {
+    return Api._send('/api/auth/forgot', { email });
+  },
+  async resetPassword(token, password) {
+    return Api._send('/api/auth/reset', { token, password });
+  },
   async googleClientId() {
     const r = await fetch('/api/auth/google-client-id');
     const data = await r.json().catch(() => ({}));
@@ -91,6 +97,9 @@ const Api = {
   async adminSetUserBlocked(id, blocked) {
     return Api._send(`/api/admin/users/${id}/${blocked ? 'block' : 'unblock'}`, {}, 'POST');
   },
+  async adminResetLink(id) {
+    return Api._send(`/api/admin/users/${id}/reset-link`, {}, 'POST');
+  },
   async adminDeleteUser(id, withBookings) {
     const r = await fetch(`/api/admin/users/${id}${withBookings ? '?with_bookings=1' : ''}`, { method: 'DELETE', credentials: 'include' });
     const data = await r.json().catch(() => ({}));
@@ -100,19 +109,6 @@ const Api = {
       throw err;
     }
     return data;
-  },
-  async socialConfig() {
-    const r = await fetch('/api/auth/social-config');
-    return r.json().catch(() => ({}));
-  },
-  async facebookSignIn(accessToken) {
-    return Api._send('/api/auth/facebook', { access_token: accessToken });
-  },
-  async appleSignIn(idToken, name) {
-    return Api._send('/api/auth/apple', { id_token: idToken, name });
-  },
-  async socialCompleteSignUp(pendingToken, phone) {
-    return Api._send('/api/auth/social/complete', { pending_token: pendingToken, phone });
   },
   async _send(url, payload, method = 'POST') {
     const r = await fetch(url, {
@@ -211,10 +207,6 @@ function buildAuthModal() {
       <div id="google-signin-section">
         <div id="google-signin-btn" class="google-signin-btn"></div>
       </div>
-      <div id="social-signin-section" style="display:none">
-        <button type="button" class="btn btn-ghost social-btn" id="apple-signin-btn" style="display:none">Continue with Apple</button>
-        <button type="button" class="btn btn-ghost social-btn" id="facebook-signin-btn" style="display:none">Continue with Facebook</button>
-      </div>
       <p class="auth-divider" id="auth-divider"><span>or</span></p>
 
       <form id="login-form">
@@ -227,6 +219,7 @@ function buildAuthModal() {
           <input id="login-password" type="password" required autocomplete="current-password" />
         </div>
         <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center">Log in</button>
+        <p class="modal-switch"><a href="#" id="switch-to-forgot">Forgotten your password?</a></p>
         <p class="modal-switch">New here? <a href="#" id="switch-to-register">Create an account</a></p>
       </form>
 
@@ -251,8 +244,25 @@ function buildAuthModal() {
         <p class="modal-switch">Already have an account? <a href="#" id="switch-to-login">Log in</a></p>
       </form>
 
+      <form id="forgot-form" style="display:none">
+        <div class="field">
+          <label for="forgot-email">Email</label>
+          <input id="forgot-email" type="email" required autocomplete="email" />
+        </div>
+        <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center">Email me a reset link</button>
+        <p class="modal-switch"><a href="#" id="forgot-back">Back to log in</a></p>
+      </form>
+
+      <form id="reset-form" style="display:none">
+        <div class="field">
+          <label for="reset-password">New password</label>
+          <input id="reset-password" type="password" required minlength="8" autocomplete="new-password" />
+        </div>
+        <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center">Set new password</button>
+      </form>
+
       <form id="google-phone-form" style="display:none">
-        <p class="sub" style="margin-top:0">We don't get a phone number from your sign-in, so we just need yours to finish setting up your account.</p>
+        <p class="sub" style="margin-top:0">Google doesn't share a phone number with us, so we just need yours to finish setting up your account.</p>
         <div class="field">
           <label for="google-phone">Phone number</label>
           <input id="google-phone" type="tel" required autocomplete="tel" />
@@ -273,6 +283,41 @@ function buildAuthModal() {
   wrap.querySelector('#switch-to-login').addEventListener('click', (e) => {
     e.preventDefault();
     showAuthMode('login');
+  });
+
+  wrap.querySelector('#switch-to-forgot').addEventListener('click', (e) => {
+    e.preventDefault();
+    const typed = document.getElementById('login-email').value;
+    showAuthMode('forgot');
+    if (typed) document.getElementById('forgot-email').value = typed;
+  });
+  wrap.querySelector('#forgot-back').addEventListener('click', (e) => {
+    e.preventDefault();
+    showAuthMode('login');
+  });
+  wrap.querySelector('#forgot-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideAuthError();
+    try {
+      await Api.forgotPassword(document.getElementById('forgot-email').value);
+      const sub = document.getElementById('auth-modal-sub');
+      sub.textContent = 'If there is an account for that email, we have sent a link to reset your password. It works for one hour.';
+    } catch (err) {
+      showAuthError(err.message);
+    }
+  });
+  wrap.querySelector('#reset-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideAuthError();
+    try {
+      const { user } = await Api.resetPassword(resetToken, document.getElementById('reset-password').value);
+      history.replaceState(null, '', location.pathname);
+      resetToken = null;
+      currentUser = user;
+      afterAuthSuccess();
+    } catch (err) {
+      showAuthError(err.message);
+    }
   });
 
   wrap.querySelector('#login-form').addEventListener('submit', async (e) => {
@@ -315,8 +360,7 @@ function buildAuthModal() {
       return;
     }
     try {
-      const complete = pendingGoogleSignup.provider ? Api.socialCompleteSignUp : Api.googleCompleteSignUp;
-      const { user } = await complete(
+      const { user } = await Api.googleCompleteSignUp(
         pendingGoogleSignup.token,
         document.getElementById('google-phone').value
       );
@@ -329,7 +373,6 @@ function buildAuthModal() {
   });
 
   initGoogleSignIn();
-  initSocialSignIn();
 }
 
 // Holds the short-lived server token + name/email from a Google sign-in
@@ -402,130 +445,48 @@ async function handleGoogleCredential(response) {
   }
 }
 
-let socialConfigPromise = null;
-let appleScriptPromise = null;
-let facebookScriptPromise = null;
-
-function loadScriptOnce(src) {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = src; script.async = true; script.defer = true;
-    script.onload = resolve; script.onerror = reject;
-    document.head.appendChild(script);
-  });
-}
-
-// "Continue with Apple" / "Continue with Facebook" — each button only shows
-// if the server has that provider's keys configured, and just disappears if
-// the provider's script can't be loaded.
-async function initSocialSignIn() {
-  const section = document.getElementById('social-signin-section');
-  try {
-    if (!socialConfigPromise) socialConfigPromise = Api.socialConfig();
-    const cfg = await socialConfigPromise;
-    const appleBtn = document.getElementById('apple-signin-btn');
-    const fbBtn = document.getElementById('facebook-signin-btn');
-
-    if (cfg.apple_client_id) {
-      appleBtn.style.display = '';
-      appleBtn.addEventListener('click', async () => {
-        hideAuthError();
-        try {
-          if (!appleScriptPromise) appleScriptPromise = loadScriptOnce('https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js');
-          await appleScriptPromise;
-          AppleID.auth.init({
-            clientId: cfg.apple_client_id,
-            scope: 'name email',
-            redirectURI: cfg.apple_redirect_uri || (window.location.origin + '/'),
-            usePopup: true,
-          });
-          const res = await AppleID.auth.signIn();
-          const n = res.user && res.user.name;
-          const name = n ? [n.firstName, n.lastName].filter(Boolean).join(' ') : '';
-          await handleSocialResult(await Api.appleSignIn(res.authorization.id_token, name), 'apple');
-        } catch (err) {
-          // Closing the Apple popup rejects with { error: 'popup_closed_by_user' } — not worth an error message.
-          if (err && err.message) showAuthError(err.message);
-        }
-      });
-    }
-
-    if (cfg.facebook_app_id) {
-      fbBtn.style.display = '';
-      fbBtn.addEventListener('click', async () => {
-        hideAuthError();
-        try {
-          if (!facebookScriptPromise) {
-            facebookScriptPromise = loadScriptOnce('https://connect.facebook.net/en_US/sdk.js').then(() => {
-              FB.init({ appId: cfg.facebook_app_id, cookie: false, xfbml: false, version: 'v19.0' });
-            });
-          }
-          await facebookScriptPromise;
-          FB.login(async (response) => {
-            if (!response.authResponse) return; // cancelled
-            try {
-              await handleSocialResult(await Api.facebookSignIn(response.authResponse.accessToken), 'facebook');
-            } catch (err) { showAuthError(err.message); }
-          }, { scope: 'public_profile,email' });
-        } catch (err) {
-          showAuthError('Facebook sign-in could not be loaded.');
-        }
-      });
-    }
-
-    if (cfg.apple_client_id || cfg.facebook_app_id) {
-      section.style.display = '';
-      socialSignInAvailable = true;
-      refreshAuthDivider();
-    }
-  } catch (err) {
-    // No config / offline — social options just don't appear.
-  }
-}
-let socialSignInAvailable = false;
-
 // The "or" line between the sign-in buttons and the email form: only while
 // choosing how to sign in, and only if at least one button is showing.
 function refreshAuthDivider() {
   const divider = document.getElementById('auth-divider');
   const phoneForm = document.getElementById('google-phone-form');
   if (!divider || !phoneForm) return;
-  const choosing = phoneForm.style.display === 'none';
-  divider.style.display = (choosing && (googleSignInAvailable === true || socialSignInAvailable)) ? '' : 'none';
+  const choosing = ['google-phone-form', 'forgot-form', 'reset-form'].every((id) => document.getElementById(id).style.display === 'none');
+  divider.style.display = (choosing && googleSignInAvailable === true) ? '' : 'none';
 }
 
-async function handleSocialResult(result, provider) {
-  if (result.needs_phone) {
-    pendingGoogleSignup = { token: result.pending_token, name: result.name, email: result.email, provider };
-    showAuthMode('google-phone');
-  } else {
-    currentUser = result.user;
-    afterAuthSuccess();
-  }
-}
+let resetToken = null;
 
 function showAuthMode(mode) {
   const modal = document.getElementById('auth-modal');
   const isLogin = mode === 'login';
   const isGooglePhone = mode === 'google-phone';
+  const isForgot = mode === 'forgot';
+  const isReset = mode === 'reset';
+  const plain = isForgot || isReset; // no Google button / "or" divider
 
-  modal.querySelector('#login-form').style.display = !isGooglePhone && isLogin ? 'block' : 'none';
-  modal.querySelector('#register-form').style.display = !isGooglePhone && !isLogin ? 'block' : 'none';
+  modal.querySelector('#login-form').style.display = !isGooglePhone && !plain && isLogin ? 'block' : 'none';
+  modal.querySelector('#register-form').style.display = !isGooglePhone && !plain && !isLogin ? 'block' : 'none';
   modal.querySelector('#google-phone-form').style.display = isGooglePhone ? 'block' : 'none';
+  modal.querySelector('#forgot-form').style.display = isForgot ? 'block' : 'none';
+  modal.querySelector('#reset-form').style.display = isReset ? 'block' : 'none';
   // The Google button + divider only make sense while picking how to sign
   // in — not mid-way through finishing a Google sign-up, and not at all if
   // it turned out not to be available (googleSignInAvailable === false).
   if (googleSignInAvailable !== false) {
-    modal.querySelector('#google-signin-section').style.display = isGooglePhone ? 'none' : '';
-  }
-  if (socialSignInAvailable) {
-    modal.querySelector('#social-signin-section').style.display = isGooglePhone ? 'none' : '';
+    modal.querySelector('#google-signin-section').style.display = (isGooglePhone || plain) ? 'none' : '';
   }
   // "or" divider only while picking how to sign in, and only if at least one
   // sign-in button is actually showing.
   refreshAuthDivider();
 
-  if (isGooglePhone) {
+  if (isForgot) {
+    modal.querySelector('#auth-modal-title').textContent = 'Reset your password';
+    modal.querySelector('#auth-modal-sub').textContent = "Enter your email and we'll send you a link to choose a new password.";
+  } else if (isReset) {
+    modal.querySelector('#auth-modal-title').textContent = 'Choose a new password';
+    modal.querySelector('#auth-modal-sub').textContent = 'At least 8 characters.';
+  } else if (isGooglePhone) {
     modal.querySelector('#auth-modal-title').textContent = 'One more thing';
     modal.querySelector('#auth-modal-sub').textContent = `Welcome, ${pendingGoogleSignup ? pendingGoogleSignup.name.split(' ')[0] : 'there'}.`;
   } else {
@@ -624,6 +585,11 @@ function initMobileNav() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(location.search);
+  if (params.get('reset')) {
+    resetToken = params.get('reset');
+    openAuthModal('reset');
+  }
   initSession();
   initMobileNav();
 });

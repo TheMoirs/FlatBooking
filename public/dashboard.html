@@ -1244,8 +1244,6 @@
     const m = [];
     if (u.has_password) m.push('Password');
     if (u.has_google) m.push('Google');
-    if (u.has_apple) m.push('Apple');
-    if (u.has_facebook) m.push('Facebook');
     return m.join(', ');
   }
 
@@ -1268,12 +1266,19 @@
             ${u.role === 'admin' ? '<span class="status-pill confirmed">admin</span>' : ''}
             ${u.blocked ? '<span class="status-pill cancelled">blocked</span>' : ''}
             <button class="btn btn-ghost btn-small user-edit-btn" data-id="${u.id}">Edit</button>
+            <button class="btn btn-ghost btn-small user-reset-btn" data-id="${u.id}">Reset link</button>
             ${u.id === me ? '' : `<button class="btn btn-ghost btn-small user-block-btn" data-id="${u.id}">${u.blocked ? 'Unblock' : 'Block'}</button>
             <button class="btn btn-ghost btn-small user-delete-btn" data-id="${u.id}">Delete</button>`}
           </div>
         </li>
       `).join('') || '<li class="empty-state">No users yet.</li>';
       list.querySelectorAll('.user-edit-btn').forEach((b) => b.addEventListener('click', () => openUserModal(Number(b.dataset.id))));
+      list.querySelectorAll('.user-reset-btn').forEach((b) => b.addEventListener('click', async () => {
+        try {
+          const { url } = await Api.adminResetLink(Number(b.dataset.id));
+          window.prompt('Password reset link (valid for 1 hour) — copy it and send it to them:', url);
+        } catch (e) { showUsersMessage(e.message, true); }
+      }));
       list.querySelectorAll('.user-block-btn').forEach((b) => b.addEventListener('click', () => toggleBlockUser(Number(b.dataset.id))));
       list.querySelectorAll('.user-delete-btn').forEach((b) => b.addEventListener('click', () => deleteUser(Number(b.dataset.id))));
     } catch (e) {
