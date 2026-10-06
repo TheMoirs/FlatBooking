@@ -158,6 +158,15 @@
       <ul class="booking-list" id="all-bookings-list"></ul>
     </div>
 
+    <!-- Admin: users -->
+    <div class="dash-panel" id="panel-users">
+      <h2>Users</h2>
+      <p style="color:var(--ink-soft)">Everyone with an account. Blocked people can't log in or use the site until you unblock them.</p>
+      <div class="form-error" id="users-error"></div>
+      <div class="form-ok" id="users-ok"></div>
+      <ul class="booking-list" id="users-list"></ul>
+    </div>
+
     <!-- Admin: settings -->
     <div class="dash-panel" id="panel-settings">
       <h2>Calendar settings</h2>
@@ -200,6 +209,37 @@
     <button class="close-x" id="details-modal-close" aria-label="Close">&times;</button>
     <h3 id="details-modal-title">Booking details</h3>
     <pre id="details-modal-body" style="white-space:pre-wrap;font-family:inherit;font-size:0.95rem;line-height:1.6;margin:0"></pre>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="user-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
+    <button class="close-x" id="user-modal-close" aria-label="Close">&times;</button>
+    <h3 id="user-modal-title">Edit user</h3>
+    <div class="form-error" id="user-modal-error"></div>
+    <div class="field">
+      <label for="user-edit-name">Name</label>
+      <input id="user-edit-name" type="text" maxlength="120" />
+    </div>
+    <div class="field">
+      <label for="user-edit-email">Email</label>
+      <input id="user-edit-email" type="email" />
+    </div>
+    <div class="field">
+      <label for="user-edit-phone">Phone</label>
+      <input id="user-edit-phone" type="tel" />
+    </div>
+    <div class="field">
+      <label>Role</label>
+      <div class="radio-row">
+        <label><input type="radio" name="user-edit-role" value="user" /> User</label>
+        <label><input type="radio" name="user-edit-role" value="admin" /> Admin</label>
+      </div>
+    </div>
+    <div class="action-row fixed" style="margin-top:16px">
+      <button class="btn btn-primary" id="user-edit-save" type="button">Save</button>
+      <button class="btn btn-ghost" id="user-edit-cancel" type="button">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -354,6 +394,7 @@
       { id: 'new-booking', label: 'New booking' },
       { id: 'my-bookings', label: 'My bookings' },
       { id: 'all-bookings', label: 'All bookings' },
+      { id: 'users', label: 'Users' },
       { id: 'settings', label: 'Settings' },
     ],
   };
@@ -365,6 +406,7 @@
     document.querySelector(`.dash-tab[data-tab="${id}"]`).classList.add('active');
     if (id === 'my-bookings') loadMyBookings();
     if (id === 'all-bookings') loadAllBookings();
+    if (id === 'users') loadUsers();
     if (id === 'settings') loadSettings();
   }
 
@@ -1192,6 +1234,130 @@
       yesBtn.disabled = false;
     }
   }
+
+  /* -------- Admin: users -------- */
+
+  let usersCache = [];
+  let editingUserId = null;
+
+  function userMethods(u) {
+    const m = [];
+    if (u.has_password) m.push('Password');
+    if (u.has_google) m.push('Google');
+    if (u.has_apple) m.push('Apple');
+    if (u.has_facebook) m.push('Facebook');
+    return m.join(', ');
+  }
+
+  async function loadUsers() {
+    const list = document.getElementById('users-list');
+    const errEl = document.getElementById('users-error');
+    errEl.classList.remove('show');
+    try {
+      const { users } = await Api.adminUsers();
+      usersCache = users;
+      const me = currentUser && currentUser.id;
+      list.innerHTML = users.map((u) => `
+        <li class="booking-row" data-id="${u.id}">
+          <div>
+            <div class="booking-dates">${escapeHtml(u.name)}</div>
+            <div class="booking-meta">${escapeHtml(u.email)} · ${escapeHtml(u.phone || '—')}</div>
+            <div class="booking-meta">${u.booking_count} booking${u.booking_count === 1 ? '' : 's'} · Signs in with: ${userMethods(u) || '—'}</div>
+          </div>
+          <div class="booking-actions">
+            ${u.role === 'admin' ? '<span class="status-pill confirmed">admin</span>' : ''}
+            ${u.blocked ? '<span class="status-pill cancelled">blocked</span>' : ''}
+            <button class="btn btn-ghost btn-small user-edit-btn" data-id="${u.id}">Edit</button>
+            ${u.id === me ? '' : `<button class="btn btn-ghost btn-small user-block-btn" data-id="${u.id}">${u.blocked ? 'Unblock' : 'Block'}</button>
+            <button class="btn btn-ghost btn-small user-delete-btn" data-id="${u.id}">Delete</button>`}
+          </div>
+        </li>
+      `).join('') || '<li class="empty-state">No users yet.</li>';
+      list.querySelectorAll('.user-edit-btn').forEach((b) => b.addEventListener('click', () => openUserModal(Number(b.dataset.id))));
+      list.querySelectorAll('.user-block-btn').forEach((b) => b.addEventListener('click', () => toggleBlockUser(Number(b.dataset.id))));
+      list.querySelectorAll('.user-delete-btn').forEach((b) => b.addEventListener('click', () => deleteUser(Number(b.dataset.id))));
+    } catch (e) {
+      errEl.textContent = e.message; errEl.classList.add('show');
+    }
+  }
+
+  function showUsersMessage(text, isError) {
+    const okEl = document.getElementById('users-ok');
+    const errEl = document.getElementById('users-error');
+    okEl.classList.remove('show'); errEl.classList.remove('show');
+    const el = isError ? errEl : okEl;
+    el.textContent = text; el.classList.add('show');
+  }
+
+  async function toggleBlockUser(id) {
+    const u = usersCache.find((x) => x.id === id);
+    if (!u) return;
+    const blocking = !u.blocked;
+    if (blocking && !confirm(`Block ${u.name}? They won't be able to log in or use the site until you unblock them.`)) return;
+    try {
+      await Api.adminSetUserBlocked(id, blocking);
+      showUsersMessage(`${u.name} has been ${blocking ? 'blocked' : 'unblocked'}.`, false);
+      loadUsers();
+    } catch (e) { showUsersMessage(e.message, true); }
+  }
+
+  async function deleteUser(id) {
+    const u = usersCache.find((x) => x.id === id);
+    if (!u) return;
+    if (!confirm(`Delete ${u.name} (${u.email})? This can't be undone.`)) return;
+    try {
+      let result;
+      try {
+        result = await Api.adminDeleteUser(id, false);
+      } catch (e) {
+        if (!e.needsBookingConfirmation) throw e;
+        if (!confirm(`${e.message}\n\nDelete ${u.name} and their bookings?`)) return;
+        result = await Api.adminDeleteUser(id, true);
+      }
+      showUsersMessage(
+        `${u.name} was deleted${result.deleted_bookings ? ` along with ${result.deleted_bookings} booking${result.deleted_bookings === 1 ? '' : 's'}` : ''}.` +
+        (result.google_calendar_warning ? ' ' + result.google_calendar_warning : ''),
+        false
+      );
+      loadUsers();
+    } catch (e) { showUsersMessage(e.message, true); }
+  }
+
+  function openUserModal(id) {
+    const u = usersCache.find((x) => x.id === id);
+    if (!u) return;
+    editingUserId = id;
+    document.getElementById('user-modal-error').classList.remove('show');
+    document.getElementById('user-edit-name').value = u.name;
+    document.getElementById('user-edit-email').value = u.email;
+    document.getElementById('user-edit-phone').value = u.phone || '';
+    setRadioValue('user-edit-role', u.role);
+    // Can't take away your own admin access.
+    document.querySelectorAll('input[name="user-edit-role"]').forEach((el) => {
+      el.disabled = (currentUser && currentUser.id === id && el.value !== 'admin');
+    });
+    document.getElementById('user-modal').classList.add('open');
+  }
+  function closeUserModal() { document.getElementById('user-modal').classList.remove('open'); }
+  document.getElementById('user-modal-close').addEventListener('click', closeUserModal);
+  document.getElementById('user-edit-cancel').addEventListener('click', closeUserModal);
+  document.getElementById('user-edit-save').addEventListener('click', async () => {
+    const errEl = document.getElementById('user-modal-error');
+    errEl.classList.remove('show');
+    try {
+      await Api.adminUpdateUser(editingUserId, {
+        name: document.getElementById('user-edit-name').value,
+        email: document.getElementById('user-edit-email').value,
+        phone: document.getElementById('user-edit-phone').value,
+        role: radioValue('user-edit-role'),
+      });
+      closeUserModal();
+      showUsersMessage('User updated.', false);
+      loadUsers();
+    } catch (e) {
+      errEl.textContent = e.message; errEl.classList.add('show');
+    }
+  });
 
   /* -------- Boot -------- */
 

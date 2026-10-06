@@ -102,3 +102,8 @@ ALTER TABLE settings ADD COLUMN IF NOT EXISTS cleaning_fee_1_room NUMERIC(8,2);
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS cleaning_fee_2_rooms NUMERIC(8,2);
 
 INSERT INTO settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- Admin user management and extra sign-in routes (added later).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS apple_id TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS facebook_id TEXT;
