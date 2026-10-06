@@ -218,7 +218,7 @@ router.post('/forgot', async (req, res) => {
         subject: 'Reset your Casa Moir password',
         text: `Hi ${user.name.split(' ')[0]},\n\nUse this link to choose a new password (it works for one hour):\n\n${link}\n\nIf you didn't ask for this, you can ignore this email.`,
       });
-      if (!sent) console.warn('Password reset requested but email is not configured (RESEND_API_KEY / MAIL_FROM).');
+      if (!sent) console.warn('Password reset requested but email is not configured (SMTP_* or RESEND_API_KEY).');
     } catch (err) {
       console.error(err.message);
     }
