@@ -772,3 +772,14 @@ section.tight { padding: 48px 0; }
 .action-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .action-row .btn { flex: 1 1 0; min-width: 110px; padding: 11px 10px; white-space: nowrap; justify-content: center; text-align: center; margin: 0; }
 .action-row.fixed .btn { flex: 0 0 170px; }
+
+/* Edit-booking calendar: the original dates stay red once new ones are picked. */
+.cal-grid .day.current-dates {
+  background: var(--red-dim);
+  color: var(--red);
+  box-shadow: inset 0 0 0 2px var(--red);
+  font-weight: 700;
+}
+
+.got-questions { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); }
+.got-questions h4 { margin-bottom: 10px; font-family: var(--sans); font-size: 1.05rem; }

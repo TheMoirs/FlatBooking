@@ -78,6 +78,12 @@ function renderMonthGrid(year, month, ranges = [], options = {}) {
       // differently depending on whether it's still the booking's original
       // dates or a newly-picked replacement — see drawEditCalendar().
       if (isSelectionPart && options.selectionVariant) classes.push(`variant-${options.selectionVariant}`);
+      // Edit-booking calendar: keep the booking's original dates marked as
+      // "current" (red) after a new range is picked, as the legend says.
+      if (!isSelectionPart && options.currentStart && options.currentEnd &&
+          dateStr >= options.currentStart && dateStr <= options.currentEnd) {
+        classes.push('current-dates');
+      }
       html += `<div class="${classes.join(' ')}" data-date="${dateStr}" role="button" tabindex="0"><span class="date-number">${day}</span></div>`;
     } else if (occupied.length) {
       // Keep the real line breaks (rather than flattening them with a

@@ -127,6 +127,13 @@
           <button class="btn btn-primary" id="submit-booking-btn">Request these dates</button>
           <button class="btn btn-ghost" id="reset-selection-btn">Clear selection</button>
         </div>
+        <div class="got-questions">
+          <h4>Got questions?</h4>
+          <div class="action-row fixed">
+            <a class="btn btn-ghost" href="https://wa.me/447970194190" target="_blank" rel="noopener">WhatsApp Ali</a>
+            <a class="btn btn-ghost" href="https://wa.me/447866757611" target="_blank" rel="noopener">WhatsApp Dawn</a>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -300,7 +307,8 @@
     </div>
     <div id="confirm-step-2" style="display:none">
       <p id="confirm-done-msg" style="margin-bottom:12px"></p>
-      <p><strong>Would you like to save this stay to your own calendar?</strong></p>
+      <p><strong id="confirm-cal-question">Would you like to save this stay to your own calendar?</strong></p>
+      <p id="confirm-cal-note" class="sub" style="display:none;margin:8px 0 0"></p>
       <div class="action-row" style="margin-top:12px">
         <a class="btn btn-primary" id="cal-google-link" target="_blank" rel="noopener">Google Calendar</a>
         <button class="btn btn-ghost" id="cal-ics-btn" type="button">Apple / Outlook (.ics)</button>
@@ -833,7 +841,7 @@
     return lines.join('\n');
   }
   function bookingPreviewText(v, status) {
-    return `${summaryText(v.start, v.end, v)}\n\n${bookingDetailsText(v, status)}`;
+    return bookingDetailsText(v, status);
   }
 
   function resetBookingForm() {
@@ -929,6 +937,24 @@
     openConfirmModal(v);
   });
 
+  // Step 2 of the confirm dialog: offer to save the stay to the guest's own
+  // calendar. After an edit it adds a new event (the old one on their own
+  // calendar can't be changed from here), so say so.
+  function showCalendarOffer(v, msg, isUpdate) {
+    document.getElementById('confirm-modal-title').textContent = isUpdate ? 'Booking updated' : 'Booking requested';
+    document.getElementById('confirm-done-msg').textContent = msg;
+    document.getElementById('confirm-cal-question').textContent = isUpdate
+      ? 'Would you like to update your own calendar with the new details?'
+      : 'Would you like to save this stay to your own calendar?';
+    const note = document.getElementById('confirm-cal-note');
+    note.textContent = 'This adds the updated stay as a new event, so delete the old one from your calendar.';
+    note.style.display = isUpdate ? '' : 'none';
+    document.getElementById('cal-google-link').href = googleCalendarUrl(v);
+    document.getElementById('cal-ics-btn').onclick = () => downloadIcs(v);
+    document.getElementById('confirm-step-1').style.display = 'none';
+    document.getElementById('confirm-step-2').style.display = '';
+  }
+
   document.getElementById('confirm-edit-btn').addEventListener('click', closeConfirmModal);
   document.getElementById('confirm-cancel-btn').addEventListener('click', () => {
     pendingBooking = null;
@@ -973,13 +999,7 @@
       okEl.textContent = msg;
       okEl.classList.add('show');
 
-      // Step 2: offer to save the stay to the guest's own calendar.
-      document.getElementById('confirm-modal-title').textContent = 'Booking requested';
-      document.getElementById('confirm-done-msg').textContent = msg;
-      document.getElementById('cal-google-link').href = googleCalendarUrl(v);
-      document.getElementById('cal-ics-btn').onclick = () => downloadIcs(v);
-      document.getElementById('confirm-step-1').style.display = 'none';
-      document.getElementById('confirm-step-2').style.display = '';
+      showCalendarOffer(v, msg, false);
       pendingBooking = null;
 
       resetBookingForm();
@@ -1007,6 +1027,8 @@
     editCal.reloadFn = reloadFn;
     editCal.start = booking.start_date;
     editCal.end = booking.end_date;
+    editCal.origStart = booking.start_date;
+    editCal.origEnd = booking.end_date;
     editCal.changed = false;
     const anchor = new Date(booking.start_date);
     editCal.anchorYear = anchor.getUTCFullYear();
@@ -1044,6 +1066,8 @@
       selectedStart: editCal.start,
       selectedEnd: editCal.end,
       selectionVariant: editCal.changed ? 'new' : 'existing',
+      currentStart: editCal.changed ? editCal.origStart : null,
+      currentEnd: editCal.changed ? editCal.origEnd : null,
       onSelect: onEditDaySelected,
     });
     const label = new Date(editCal.anchorYear, editCal.anchorMonth, 1);
@@ -1146,11 +1170,11 @@
         notes: v.notes,
       });
       pendingBooking = null;
-      closeConfirmModal();
       if (result && result.google_calendar_warning) alert(result.google_calendar_warning);
       closeEditModal();
       if (editCal.reloadFn) editCal.reloadFn();
       loadBookingCalendar();
+      showCalendarOffer(v, 'Booking updated.', true);
     } catch (e) {
       // Back to the edit form with the problem shown there.
       closeConfirmModal();
