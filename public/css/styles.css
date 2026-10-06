@@ -111,6 +111,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   font-size: 1.25rem;
   font-weight: 600;
 }
+.brand-logo {
+  display: block;
+  height: 46px;
+  width: auto;
+  border-radius: 3px;
+}
 
 .main-nav {
   display: flex;
@@ -124,21 +130,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 }
 .main-nav a:hover { color: var(--terracotta); }
 
-/* Mobile menu button — hidden on desktop; shown instead of .main-nav below
-   the breakpoint where that's hidden (see the 860px media query below). */
-.nav-toggle {
-  display: none;
-  background: none;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  width: 40px;
-  height: 40px;
-  font-size: 1.2rem;
-  line-height: 1;
-  color: var(--ink);
-  cursor: pointer;
-  flex-shrink: 0;
-}
 
 .nav-account {
   display: flex;
@@ -218,14 +209,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   /* Smaller, and scaled more aggressively with viewport width than the
      site-wide h1, so "Casa Moir - Our holiday home in Calahonda." fits on
      one line instead of wrapping to two. */
-  font-size: clamp(1.05rem, calc((100vw - 48px) / 20), 3.4rem);
+  font-size: clamp(1.1rem, calc((100vw - 48px) / 15.5), 3.4rem);
   white-space: nowrap;
-}
-@media (max-width: 380px) {
-  /* Below this, even the smallest comfortable font size can't fit the full
-     line without crowding the edges — fall back to letting it wrap over
-     two lines, as it did before, rather than clipping or scrolling. */
-  .hero h1 { white-space: normal; max-width: 34ch; }
 }
 .hero .lede {
   color: var(--white);
@@ -549,7 +534,7 @@ section.tight { padding: 48px 0; }
    on a dark bar, not a blur over light page content. */
 .todo-jump-bar {
   position: sticky;
-  top: 66px;
+  top: 75px;
   z-index: 35;
   background: var(--sea-deep);
   border-bottom: 1px solid rgba(255,255,255,0.15);
@@ -567,7 +552,7 @@ section.tight { padding: 48px 0; }
 
 /* Overrides the generic `section { padding: 72px 0 }` — that plus the old
    56px margin left huge gaps between the main sections of this long list. */
-.todo-section { padding: 0; margin-bottom: 28px; scroll-margin-top: 140px; } /* clear the sticky header + jump bar */
+.todo-section { padding: 0; margin-bottom: 28px; scroll-margin-top: 155px; } /* clear the sticky header + jump bar */
 .todo-group { margin-bottom: 20px; }
 .todo-group h4 { color: var(--terracotta); font-family: var(--sans); font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; }
 .todo-items { list-style: none; margin: 0; padding: 0; }
@@ -740,35 +725,38 @@ section.tight { padding: 48px 0; }
   .gallery .wide { grid-column: span 2; }
   .todo-item { flex-direction: column; }
 
-  /* The links that used to just vanish here (The Flat, Photos, Availability,
-     Costs, Things to do) now live behind the hamburger button instead, as
-     a dropdown under the header. */
-  .nav-toggle { display: block; }
+  /* Nav links stay visible on mobile: they drop onto their own row under
+     the logo and account buttons instead of hiding behind a menu. */
+  .site-header .inner { flex-wrap: wrap; row-gap: 8px; padding: 10px 16px; }
   .main-nav {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
-    background: var(--whitewash);
-    border-bottom: 1px solid var(--line);
-    box-shadow: 0 8px 20px -8px rgba(0,0,0,0.2);
-  }
-  .main-nav.open { display: flex; }
-  .main-nav a {
-    padding: 14px 24px;
+    order: 3;
+    flex: 1 0 100%;
+    justify-content: space-between;
+    gap: 6px;
     border-top: 1px solid var(--line);
+    padding-top: 8px;
   }
+  .main-nav a { font-size: 0.85rem; white-space: nowrap; }
 }
 
-/* Below ~455px the brand name wraps onto two lines (no room beside the
-   Log in / Book Now buttons once .main-nav is hidden above), growing the
-   sticky header from ~66px to ~95px tall — the jump bar's sticky offset
-   has to grow to match, or it sticks partway under the taller header. */
-@media (max-width: 455px) {
-  .todo-jump-bar { top: 96px; }
-  .todo-section { scroll-margin-top: 220px; }
+/* Small phones: shrink the logo and account buttons so they share one row,
+   with the nav links on the row beneath. */
+@media (max-width: 560px) {
+  .brand-logo { height: 34px; }
+  .nav-account { display: flex; gap: 6px; align-items: center; }
+  .nav-account .btn { padding: 7px 10px; font-size: 0.82rem; }
+}
+
+/* The sticky header's height varies with the layout (logo + nav row on
+   mobile), so the jump bar's sticky offset and the anchor scroll margin
+   track it. */
+@media (max-width: 860px) {
+  .todo-jump-bar { top: 105px; }
+  .todo-section { scroll-margin-top: 185px; }
+}
+@media (max-width: 560px) {
+  .todo-jump-bar { top: 93px; }
+  .todo-jump { gap: 6px; padding: 8px 0; }
+  .todo-jump a { padding: 5px 11px; font-size: 0.8rem; }
+  .todo-section { scroll-margin-top: 150px; }
 }
