@@ -3,7 +3,7 @@
 // on the server. Returns true if sent, false if email isn't configured.
 async function sendMail({ to, subject, text }) {
   const key = process.env.RESEND_API_KEY;
-  const from = process.env.MAIL_FROM;
+  const from = process.env.MAIL_FROM || process.env.RESEND_FROM_EMAIL;
   if (!key || !from) return false;
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',
