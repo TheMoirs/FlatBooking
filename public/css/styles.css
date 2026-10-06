@@ -565,6 +565,9 @@ section.tight { padding: 48px 0; }
 }
 .todo-jump a:hover { background: rgba(255,255,255,0.12); }
 
+/* Overrides the generic `section { padding: 72px 0 }` — that plus the old
+   56px margin left huge gaps between the main sections of this long list. */
+.todo-section { padding: 0; margin-bottom: 28px; scroll-margin-top: 140px; } /* clear the sticky header + jump bar */
 .todo-group { margin-bottom: 20px; }
 .todo-group h4 { color: var(--terracotta); font-family: var(--sans); font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; }
 .todo-items { list-style: none; margin: 0; padding: 0; }
@@ -767,4 +770,5 @@ section.tight { padding: 48px 0; }
    has to grow to match, or it sticks partway under the taller header. */
 @media (max-width: 455px) {
   .todo-jump-bar { top: 96px; }
+  .todo-section { scroll-margin-top: 220px; }
 }

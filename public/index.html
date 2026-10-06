@@ -30,11 +30,6 @@
 <section class="hero" style="background-image:url('/images/view-from-terrace.jpg')">
   <div class="hero-inner">
     <h1>Casa Moir - Our holiday home in Calahonda.</h1>
-    <p class="lede">Our family's flat, halfway between Malaga and Marbella has three bedrooms and a shared pool, with restaurants and beaches just minutes away. Family and friends only.</p>
-    <div class="hero-actions">
-      <button class="btn btn-primary" id="hero-book-btn">Book Now</button>
-      <a class="btn btn-ghost" style="color:#fff;border-color:rgba(255,255,255,0.5)" href="/availability.html" target="_blank" rel="noopener">Check availability</a>
-    </div>
   </div>
 </section>
 
@@ -131,8 +126,6 @@
 <script src="/js/calendar.js"></script>
 <script src="/js/app.js"></script>
 <script>
-  document.getElementById('hero-book-btn').addEventListener('click', () => onBookNowClick());
-
   function fmtGBP(n) {
     return `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }

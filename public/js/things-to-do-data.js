@@ -43,20 +43,7 @@ const THINGS_TO_DO = {
     groups: [
       { heading: null, items: [
         { name: "La Siesta Golf", note: "9-hole Pitch & Putt (€22) plus driving range — next door", site: "https://www.clubdegolflasiesta.com/" },
-        { name: "Club del Sol", note: "Tennis, squash, gym & cafe — across the road", site: "https://www.tenniscostadelsol.com/" }
-      ]},
-      { heading: "Beaches", items: [
-        { name: "El Bombo Beach", note: "Water sports & beach restaurants — 6 mins by car, or 1 hr walk", map: "https://goo.gl/maps/XA3Zxzz4Q7HtoKqK8" },
-        { name: "Luna Beach & restaurant", note: "8 mins by car, or 50 min walk", map: "https://g.page/lunabeachcalahonda?share" },
-        { name: "La Cala Beach", note: "Boules piste & restaurants — 9 mins by car, or 1 hr 15 min walk", map: "https://goo.gl/maps/691FA7Bp2oh2u5eA9" },
-        { name: "Cabopino (Andy's) beach", note: "Marina & restaurants — 7 mins by car, or 1 hr walk", map: "https://goo.gl/maps/xHMSbUNLbJGgch58A" }
-      ]},
-      { heading: "Shopping", items: [
-        { name: "Miramar Shopping Mall, Fuengirola", note: "15 mins by car", site: "https://www.miramarcc.com/en/", map: "https://goo.gl/maps/CMCrQ1ezhfgrMEuT6" },
-        { name: "McArthur Glen Designer Outlet, Malaga", note: "30 mins by car", site: "https://www.mcarthurglen.com/en/outlets/es/designer-outlet-malaga/", map: "https://maps.app.goo.gl/YVHRsWJdb8sSRUT2A" },
-        { name: "La Canada Shopping Mall, Marbella", note: "20 mins by car", site: "https://lacanadashopping.com/", map: "https://maps.app.goo.gl/kLQWhwPYYZTXMtse9" }
-      ]},
-      { heading: null, items: [
+        { name: "Club del Sol", note: "Tennis, squash, gym & cafe — across the road", site: "https://www.tenniscostadelsol.com/" },
         { name: "Mijas Pueblo", note: "Pretty white village to walk around, eat & drink — 25 mins by car", site: "https://www.tripadvisor.co.uk/Attractions-g4424512-Activities-Mijas_Pueblo_Mijas_Costa_del_Sol_Province_of_Malaga_Andalucia.html", map: "https://www.google.com/maps/place/Mijas+Pueblo,+29650+Mijas,+M%C3%A1laga,+Spain/@36.5963609,-4.6417572,16z" },
         { name: "Mijas Pueblo Walking Tour", note: "About €10 — WhatsApp Alan Boardman +34 610 522605", site: "https://www.facebook.com/mijaswalkingtours" },
         { name: "Visit Marbella", note: "Shops, restaurants, Old Town & marina — 20 mins by car", map: "https://goo.gl/maps/h9N5pKqvxjhBamSN8" },
@@ -71,15 +58,7 @@ const THINGS_TO_DO = {
         { name: "Marbella Jet Ski", note: "Plus pedalos, banana boats, paddle boards etc — 15 mins by car", site: "https://marbellajetski.com/", map: "https://goo.gl/maps/VxndUUzbdr9ftPrD7" },
         { name: "Golf Courses", note: "There are loads! Need to pre-book well in advance", site: "https://www.costalessgolf.com/lowest-green-fees/?tour_destination=costa-del-sol" },
         { name: "Bikestardo", note: "Bike hire, tracks & guided tours — will deliver to flat", site: "https://www.bikestardo.com/Tracks" },
-        { name: "Legends Showbar, La Cala", note: "Music tributes — 10 mins by car", site: "https://www.facebook.com/legendslacala/", map: "https://goo.gl/maps/kBW3cCtXBXsHKR627" },
-        { name: "The Casbah Live Lounge, Torrenueva", note: "8 mins by car", site: "https://m.facebook.com/TheCazbahLiveLounge", map: "https://maps.app.goo.gl/TLnaWXSYambR249eA" },
-        { name: "La Cala market at the fairground", note: "9am–2pm, every Wed & Sat — 10 mins by car", map: "https://maps.app.goo.gl/rnWDoSHWKD7YsUfB7" }
-      ]},
-      { heading: "Massage & facials", items: [
-        { name: "La Cala Golf Spa", note: "", site: "https://www.lacala.com/bookings/" },
-        { name: "Spa treatments at Oceano Hotel", note: "", site: "https://www.oceanohotel.com/beauty-salon/treatments-prices" }
-      ]},
-      { heading: null, items: [
+        { name: "La Cala market at the fairground", note: "9am–2pm, every Wed & Sat — 10 mins by car", map: "https://maps.app.goo.gl/rnWDoSHWKD7YsUfB7" },
         { name: "Dolphin sightseeing boat tour, Fuengirola", note: "€38 for 2 hrs, inc. drinks/snacks — 20 mins by car", site: "https://www.sailbombay.com/", map: "https://maps.app.goo.gl/9q9BfRvg1SsVJwms7" },
         { name: "Beach clubs with pool, bar & restaurant", note: "Max Beach, Riviera & Unico Beach Club, La Cala", site: "https://www.maxbeach.es/" },
         { name: "Kitesurfing Lessons — Marbella Kite School", note: "", site: "https://marbellakiteschool.com/" },
@@ -87,6 +66,25 @@ const THINGS_TO_DO = {
         { name: "Crazy Golf, Fuengirola", note: "18 mins by car", site: "https://fuengirolaadventuregolf.com/", map: "https://maps.app.goo.gl/Pvfs8YmjaZrwQtGRA" },
         { name: "Mijas Grand Park", note: "Children's play area, skate park, running track, pétanque pistes, lakes — 20 min drive", map: "https://maps.app.goo.gl/3eQuoSMFyNLsemt39" },
         { name: "Zip Line & Adventure Park, Malaga", note: "40 mins by car", site: "https://sunviewpark.com/", map: "https://maps.app.goo.gl/aMt921afadLuKc2P9" }
+      ]},
+      { heading: "Beaches", items: [
+        { name: "El Bombo Beach", note: "Water sports & beach restaurants — 6 mins by car, or 1 hr walk", map: "https://goo.gl/maps/XA3Zxzz4Q7HtoKqK8" },
+        { name: "Luna Beach & restaurant", note: "8 mins by car, or 50 min walk", map: "https://g.page/lunabeachcalahonda?share" },
+        { name: "La Cala Beach", note: "Boules piste & restaurants — 9 mins by car, or 1 hr 15 min walk", map: "https://goo.gl/maps/691FA7Bp2oh2u5eA9" },
+        { name: "Cabopino (Andy's) beach", note: "Marina & restaurants — 7 mins by car, or 1 hr walk", map: "https://goo.gl/maps/xHMSbUNLbJGgch58A" }
+      ]},
+      { heading: "Shopping", items: [
+        { name: "Miramar Shopping Mall, Fuengirola", note: "15 mins by car", site: "https://www.miramarcc.com/en/", map: "https://goo.gl/maps/CMCrQ1ezhfgrMEuT6" },
+        { name: "McArthur Glen Designer Outlet, Malaga", note: "30 mins by car", site: "https://www.mcarthurglen.com/en/outlets/es/designer-outlet-malaga/", map: "https://maps.app.goo.gl/YVHRsWJdb8sSRUT2A" },
+        { name: "La Canada Shopping Mall, Marbella", note: "20 mins by car", site: "https://lacanadashopping.com/", map: "https://maps.app.goo.gl/kLQWhwPYYZTXMtse9" }
+      ]},
+      { heading: "Massage & facials", items: [
+        { name: "La Cala Golf Spa", note: "", site: "https://www.lacala.com/bookings/" },
+        { name: "Spa treatments at Oceano Hotel", note: "", site: "https://www.oceanohotel.com/beauty-salon/treatments-prices" }
+      ]},
+      { heading: "Live Music", items: [
+        { name: "Legends Showbar, La Cala", note: "Music tributes — 10 mins by car", site: "https://www.facebook.com/legendslacala/", map: "https://goo.gl/maps/kBW3cCtXBXsHKR627" },
+        { name: "The Casbah Live Lounge, Torrenueva", note: "8 mins by car", site: "https://m.facebook.com/TheCazbahLiveLounge", map: "https://maps.app.goo.gl/TLnaWXSYambR249eA" }
       ]}
     ]
   },

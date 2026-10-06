@@ -228,6 +228,24 @@ router.get('/availability', async (req, res) => {
 // old bookings" checkbox in the dashboard's "My bookings" tab. "All
 // bookings" (the admin tab) has no such filter — it always returns the
 // complete history, oldest first.
+// GET /api/agent-bookings — public, no login. Backs the Agent Bookings page
+// (agent-bookings.html), which anyone with the link can open. Deliberately a
+// separate, read-only endpoint rather than loosening GET /bookings?all=1:
+// that one returns guests' emails and phone numbers (and runs the Google
+// Calendar import/clean-up as a side effect), neither of which this page
+// needs or should expose. Only what the page actually shows is returned —
+// dates, who's going, room set-up, notes and status.
+router.get('/agent-bookings', async (req, res) => {
+  const result = await query(
+    `SELECT id, start_date, end_date, status, who_going, notes, source,
+            arrival_time, departure_time,
+            master_bedroom_config, middle_bedroom_config, first_bedroom_config, sofa_bed_required
+     FROM bookings
+     ORDER BY start_date ASC`
+  );
+  res.json({ bookings: result.rows });
+});
+
 router.get('/bookings', attachUser, requireAuth, async (req, res) => {
   const wantsAll = req.query.all === '1';
   const includeOld = req.query.includeOld === '1';

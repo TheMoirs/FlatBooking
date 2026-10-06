@@ -78,7 +78,7 @@
   }
 
   function sectionHtml(key, section) {
-    let html = `<section id="${key}" style="margin-bottom:56px">
+    let html = `<section id="${key}" class="todo-section">
       <h2 class="todo-section-title">${section.title}</h2>
       ${section.intro ? `<p>${section.intro}</p>` : ''}`;
     section.groups.forEach((group) => {

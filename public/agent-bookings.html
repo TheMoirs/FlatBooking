@@ -103,7 +103,7 @@
     list.innerHTML = '<li class="empty-state">Loading…</li>';
     let allBookings, calendar_sync_error;
     try {
-      const r = await fetch('/api/bookings?all=1', { credentials: 'include' });
+      const r = await fetch('/api/agent-bookings');
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || 'Unable to load bookings.');
       ({ bookings: allBookings, calendar_sync_error } = data);
@@ -151,12 +151,9 @@
   }
 
   (async function boot() {
-    const user = await initSession();
-    if (!user || user.role !== 'admin') {
-      document.querySelector('.container').innerHTML =
-        '<p style="color:var(--ink-soft)">You need to be logged in as an admin to view this page.</p>';
-      return;
-    }
+    // Open to anyone with the link — no login needed. initSession() still
+    // runs so the header shows Log in / the account buttons as usual.
+    await initSession();
     document.getElementById('show-past-bookings').addEventListener('change', loadAgentBookings);
     await loadAgentBookings();
   })();
