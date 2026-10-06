@@ -66,7 +66,8 @@ const THINGS_TO_DO = {
         { name: "Crazy Golf, Fuengirola", note: "18 mins by car", site: "https://fuengirolaadventuregolf.com/", map: "https://maps.app.goo.gl/Pvfs8YmjaZrwQtGRA" },
         { name: "Mijas Grand Park", note: "Children's play area, skate park, running track, pétanque pistes, lakes — 20 min drive", map: "https://maps.app.goo.gl/3eQuoSMFyNLsemt39" },
         { name: "Zip Line & Adventure Park, Malaga", note: "40 mins by car", site: "https://sunviewpark.com/", map: "https://maps.app.goo.gl/aMt921afadLuKc2P9" },
-        { name: "Horse riding on the beach, Torremolinos", note: "Cortijo el Moral, from €45 — 30 mins by car", site: "https://cortijomoral.com/", map: "https://maps.app.goo.gl/k4pGaWx6iUW8r2nH6" }
+        { name: "Horse riding on the beach, Torremolinos", note: "Cortijo el Moral, from €45 — 30 mins by car", site: "https://cortijomoral.com/", map: "https://maps.app.goo.gl/k4pGaWx6iUW8r2nH6" },
+        { name: "Car & fashion museum, Malaga", note: "", site: "https://www.getyourguide.com/malaga-l402/malaga-museo-del-automovil-y-la-moda-ticket-t37989/?ranking_uuid=cf7ab311-4335-4603-a6fc-c2d5cc362ef9&partner_id=CPO27MV&referral_redirect=1&closeTabOnNavigationBack=true&utm_medium=sharing&utm_campaign=activity_details_mweb", map: "https://maps.app.goo.gl/gggvA6gqUdUnLC4i9" }
       ]},
       { heading: "Beaches", items: [
         { name: "El Bombo Beach", note: "Water sports & beach restaurants — 6 mins by car, or 1 hr walk", map: "https://goo.gl/maps/XA3Zxzz4Q7HtoKqK8" },
@@ -84,7 +85,7 @@ const THINGS_TO_DO = {
         { name: "Spa treatments at Oceano Hotel", note: "", site: "https://www.oceanohotel.com/beauty-salon/treatments-prices" }
       ]},
       { heading: "Live Music", items: [
-        { name: "La Placita", note: "Early evening live music", site: "https://www.facebook.com/p/La-Placita-Calahonda-61568220194754/?checkpoint_src=any" },
+        { name: "La Placita", note: "Early evening live music", site: "https://www.facebook.com/p/La-Placita-Calahonda-61568220194754/?checkpoint_src=any", map: "https://maps.app.goo.gl/gX88dK7HLgDZpREC8" },
         { name: "Legends Showbar, La Cala", note: "Music tributes — 10 mins by car", site: "https://www.facebook.com/legendslacala/", map: "https://goo.gl/maps/kBW3cCtXBXsHKR627" },
         { name: "The Casbah Live Lounge, Torrenueva", note: "8 mins by car", site: "https://m.facebook.com/TheCazbahLiveLounge", map: "https://maps.app.goo.gl/TLnaWXSYambR249eA" }
       ]}
