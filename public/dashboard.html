@@ -794,11 +794,29 @@
   }
 
   // The same lines the saved booking description will contain.
+  // "3 Nights: £45 plus Cleaning: £82 - Total: £127" — same wording as the
+  // saved booking description and the shared Google Calendar event.
+  function fmtMoneyShort(n) {
+    return Number.isInteger(n) ? `£${n}` : `£${n.toFixed(2)}`;
+  }
+  function costsLineFor(v) {
+    if (dailyRate === null || Number.isNaN(dailyRate)) return null;
+    const nights = nightsBetween(v.start, v.end);
+    if (!(nights > 0)) return null;
+    const nightly = nights * dailyRate;
+    const base = `${nights} Night${nights === 1 ? '' : 's'}: ${fmtMoneyShort(nightly)}`;
+    const cleaning = cleaningChargeFor({ middle: v.middle, first: v.first });
+    if (cleaning === null) return base;
+    return `${base} plus Cleaning: ${fmtMoneyShort(cleaning)} - Total: ${fmtMoneyShort(nightly + cleaning)}`;
+  }
+
   function bookingDetailsText(v) {
     const lines = [];
     lines.push(`Provisional - ${v.whoGoing}`);
     lines.push(`Arrival time at flat: ${fmtDateTimeLine(v.start, v.arrival)}`);
     lines.push(`Flat leave time: ${fmtDateTimeLine(v.end, v.leave)}`);
+    const costsLine = costsLineFor(v);
+    if (costsLine) lines.push(costsLine);
     lines.push(`Master bedroom: ${v.master}`);
     lines.push(`Middle bedroom: ${v.middle}`);
     lines.push(`1st bedroom: ${v.first}`);

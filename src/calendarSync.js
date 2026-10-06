@@ -21,7 +21,37 @@ function fmtDateTimeLine(dateStr, time) {
   return datePart || time || null;
 }
 
-function buildGoogleCalendarDescription({ guestName, status, arrivalTime, departureTime, startDate, endDate, masterBedroomConfig, middleBedroomConfig, firstBedroomConfig, sofaBedRequired, notes }) {
+// "3 Nights: £300 plus Cleaning: £50 - Total: £350" — worked out from the
+// current charges in the settings table. Whole pounds show without pence.
+// Returns null if the nightly rate hasn't been set up yet; without a cleaning
+// fee it's just the nights part.
+function fmtMoney(n) {
+  return Number.isInteger(n) ? `£${n}` : `£${n.toFixed(2)}`;
+}
+function dateKey(d) {
+  return typeof d === 'string' ? d.slice(0, 10) : new Date(d).toISOString().slice(0, 10);
+}
+async function getCostsLine({ startDate, endDate, middleBedroomConfig, firstBedroomConfig }) {
+  if (!startDate || !endDate) return null;
+  const r = await query('SELECT daily_rate, cleaning_fee_1_room, cleaning_fee_2_rooms FROM settings WHERE id = 1');
+  const row = r.rows[0];
+  if (!row || row.daily_rate === null || row.daily_rate === undefined) return null;
+  const [sy, sm, sd] = dateKey(startDate).split('-').map(Number);
+  const [ey, em, ed] = dateKey(endDate).split('-').map(Number);
+  const nights = Math.round((Date.UTC(ey, em - 1, ed) - Date.UTC(sy, sm - 1, sd)) / 86400000);
+  if (!(nights > 0)) return null;
+  const nightly = nights * Number(row.daily_rate);
+  let rooms = 1;
+  if (middleBedroomConfig && middleBedroomConfig !== 'Not Required') rooms += 1;
+  if (firstBedroomConfig && firstBedroomConfig !== 'Not Required') rooms += 1;
+  const feeRaw = rooms >= 2 ? row.cleaning_fee_2_rooms : row.cleaning_fee_1_room;
+  const base = `${nights} Night${nights === 1 ? '' : 's'}: ${fmtMoney(nightly)}`;
+  if (feeRaw === null || feeRaw === undefined) return base;
+  const cleaning = Number(feeRaw);
+  return `${base} plus Cleaning: ${fmtMoney(cleaning)} - Total: ${fmtMoney(nightly + cleaning)}`;
+}
+
+function buildGoogleCalendarDescription({ guestName, status, arrivalTime, departureTime, startDate, endDate, masterBedroomConfig, middleBedroomConfig, firstBedroomConfig, sofaBedRequired, notes, costsLine }) {
   const lines = [
     `Guest: ${guestName || 'Guest'}`,
     `Status: ${status || 'provisional'}`,
@@ -30,6 +60,7 @@ function buildGoogleCalendarDescription({ guestName, status, arrivalTime, depart
   const leaveLine = fmtDateTimeLine(endDate, departureTime);
   if (arrivalLine) lines.push(`Arrival: ${arrivalLine}`);
   if (leaveLine) lines.push(`Leave: ${leaveLine}`);
+  if (costsLine) lines.push(costsLine);
   if (masterBedroomConfig) lines.push(`Master bedroom configuration: ${masterBedroomConfig}`);
   if (middleBedroomConfig) lines.push(`Middle bedroom configuration: ${middleBedroomConfig}`);
   if (firstBedroomConfig) lines.push(`1st bedroom configuration: ${firstBedroomConfig}`);
@@ -143,6 +174,7 @@ async function upsertGoogleCalendarEvent({
   const calendarClient = await getGoogleCalendarClient();
   if (!calendarClient) return null;
 
+  const costsLine = await getCostsLine({ startDate, endDate, middleBedroomConfig, firstBedroomConfig });
   const summary = `${status === 'confirmed' ? 'Confirmed' : 'Provisional'} - ${guestName || 'Guest'}`;
   const description = buildGoogleCalendarDescription({
     guestName,
@@ -156,6 +188,7 @@ async function upsertGoogleCalendarEvent({
     firstBedroomConfig,
     sofaBedRequired,
     notes,
+    costsLine,
   });
 
   const payload = {
@@ -369,4 +402,5 @@ module.exports = {
   googleCalendarEventStillExists,
   checkGoogleCalendarWriteAccess,
   fmtDateTimeLine,
+  getCostsLine,
 };

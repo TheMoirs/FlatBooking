@@ -8,6 +8,7 @@ const {
   deriveGoogleEventIdFromUid,
   googleCalendarEventStillExists,
   fmtDateTimeLine,
+  getCostsLine,
 } = require('../calendarSync');
 
 const router = express.Router();
@@ -430,7 +431,14 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
   }
 
   const whoGoing = String(who_going).trim();
+  const costsLine = await getCostsLine({
+    startDate: start_date,
+    endDate: end_date,
+    middleBedroomConfig: middle_bedroom_config,
+    firstBedroomConfig: first_bedroom_config,
+  });
   const calendarDescription = buildCalendarDescription({
+    costsLine,
     whoGoing,
     status: 'provisional',
     notes,
@@ -620,7 +628,14 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
   }
 
   const whoGoing = String(who_going).trim();
+  const costsLine = await getCostsLine({
+    startDate: start_date,
+    endDate: end_date,
+    middleBedroomConfig: middle_bedroom_config,
+    firstBedroomConfig: first_bedroom_config,
+  });
   const calendarDescription = buildCalendarDescription({
+    costsLine,
     whoGoing,
     status: current.status,
     notes,
@@ -764,6 +779,7 @@ function buildCalendarDescription({
   middleBedroomConfig,
   firstBedroomConfig,
   sofaBedRequired,
+  costsLine,
 }) {
   const lines = [];
   if (whoGoing && String(whoGoing).trim()) {
@@ -775,6 +791,7 @@ function buildCalendarDescription({
   // shown at all when a time was actually given, same as before.
   if (arrivalTime) lines.push(`Arrival time at flat: ${fmtDateTimeLine(startDate, arrivalTime)}`);
   if (departureTime) lines.push(`Flat leave time: ${fmtDateTimeLine(endDate, departureTime)}`);
+  if (costsLine) lines.push(costsLine);
   if (masterBedroomConfig) lines.push(`Master bedroom: ${masterBedroomConfig}`);
   if (middleBedroomConfig) lines.push(`Middle bedroom: ${middleBedroomConfig}`);
   if (firstBedroomConfig) lines.push(`1st bedroom: ${firstBedroomConfig}`);
