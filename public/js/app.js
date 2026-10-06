@@ -273,6 +273,28 @@ function buildAuthModal() {
   `;
   document.body.appendChild(wrap);
 
+  // "Show" / "Hide" toggle on every password box.
+  wrap.querySelectorAll('input[type="password"]').forEach((input) => {
+    const box = document.createElement('div');
+    box.className = 'password-wrap';
+    input.parentNode.insertBefore(box, input);
+    box.appendChild(input);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'password-toggle';
+    btn.textContent = 'Show';
+    btn.setAttribute('aria-label', 'Show password');
+    btn.setAttribute('aria-pressed', 'false');
+    btn.addEventListener('click', () => {
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.textContent = show ? 'Hide' : 'Show';
+      btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      btn.setAttribute('aria-pressed', String(show));
+    });
+    box.appendChild(btn);
+  });
+
   wrap.querySelector('.close-x').addEventListener('click', closeAuthModal);
   wrap.addEventListener('click', (e) => { if (e.target === wrap) closeAuthModal(); });
 
