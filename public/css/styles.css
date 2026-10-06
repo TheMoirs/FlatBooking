@@ -515,7 +515,8 @@ section.tight { padding: 48px 0; }
   align-items: flex-start;
 }
 .site-footer a { color: #E4ECEE; }
-.site-footer .foot-nav { display: flex; gap: 24px; }
+.site-footer .foot-nav { display: flex; flex-wrap: wrap; gap: 12px 24px; }
+.footer-logo { height: 56px; margin-bottom: 12px; }
 .site-footer small { display: block; margin-top: 24px; color: #7C929A; }
 
 /* ---------------- Things To Do page ---------------- */
@@ -554,7 +555,7 @@ section.tight { padding: 48px 0; }
    56px margin left huge gaps between the main sections of this long list. */
 .todo-section { padding: 0; margin-bottom: 28px; scroll-margin-top: 155px; } /* clear the sticky header + jump bar */
 .todo-group { margin-bottom: 20px; }
-.todo-group h4 { color: var(--terracotta); font-family: var(--sans); font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; }
+.todo-group h4 { color: var(--terracotta); font-family: var(--sans); font-weight: 700; font-size: 1.2rem; margin-bottom: 8px; }
 .todo-items { list-style: none; margin: 0; padding: 0; }
 .todo-item {
   display: flex;
@@ -723,7 +724,8 @@ section.tight { padding: 48px 0; }
   .calendar-months { grid-template-columns: 1fr; }
   .gallery { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; }
   .gallery .wide { grid-column: span 2; }
-  .todo-item { flex-direction: column; }
+  .todo-item { flex-direction: column; gap: 0; padding-bottom: 18px; }
+  .todo-item .links { padding-top: 0; margin-top: 4px; }
 
   /* Nav links stay visible on mobile: they drop onto their own row under
      the logo and account buttons instead of hiding behind a menu. */
