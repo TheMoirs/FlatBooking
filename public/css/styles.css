@@ -218,7 +218,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   /* Smaller, and scaled more aggressively with viewport width than the
      site-wide h1, so "Casa Moir - Our holiday home in Calahonda." fits on
      one line instead of wrapping to two. */
-  font-size: clamp(1.05rem, 4.2vw, 2.6rem);
+  font-size: clamp(1.05rem, calc((100vw - 48px) / 20), 3.4rem);
   white-space: nowrap;
 }
 @media (max-width: 380px) {
