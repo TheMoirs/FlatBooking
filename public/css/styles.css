@@ -767,3 +767,8 @@ section.tight { padding: 48px 0; }
 .field.missing > label:first-child { color: #B3261E; }
 .field.missing > label:first-child::after { content: " — required"; font-weight: 400; }
 .field.missing input[type="text"] { border-color: #B3261E; }
+
+/* Action buttons sharing a row are all the same size. */
+.action-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.action-row .btn { flex: 1 1 0; min-width: 110px; padding: 11px 10px; white-space: nowrap; justify-content: center; text-align: center; margin: 0; }
+.action-row.fixed .btn { flex: 0 0 170px; }

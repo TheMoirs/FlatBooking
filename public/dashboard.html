@@ -123,8 +123,10 @@
           <label for="booking-notes">Anything we should know? (optional)</label>
           <textarea id="booking-notes" rows="3"></textarea>
         </div>
-        <button class="btn btn-primary" id="submit-booking-btn">Request these dates</button>
-        <button class="btn btn-ghost btn-small" id="reset-selection-btn" style="margin-left:8px">Clear selection</button>
+        <div class="action-row fixed">
+          <button class="btn btn-primary" id="submit-booking-btn">Request these dates</button>
+          <button class="btn btn-ghost" id="reset-selection-btn">Clear selection</button>
+        </div>
       </div>
     </div>
 
@@ -191,29 +193,6 @@
     <button class="close-x" id="details-modal-close" aria-label="Close">&times;</button>
     <h3 id="details-modal-title">Booking details</h3>
     <pre id="details-modal-body" style="white-space:pre-wrap;font-family:inherit;font-size:0.95rem;line-height:1.6;margin:0"></pre>
-  </div>
-</div>
-
-<div class="modal-backdrop" id="confirm-modal">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
-    <h3 id="confirm-modal-title">Please check your booking</h3>
-    <div id="confirm-step-1">
-      <p class="sub">This is what will be saved. Confirm it, go back and edit it, or cancel.</p>
-      <pre id="confirm-modal-body" style="white-space:pre-wrap;font-family:inherit;font-size:0.95rem;line-height:1.6;margin:0 0 20px"></pre>
-      <div class="form-error" id="confirm-error"></div>
-      <button class="btn btn-primary" id="confirm-yes-btn" type="button">Confirm</button>
-      <button class="btn btn-ghost" id="confirm-edit-btn" type="button" style="margin-left:8px">Edit</button>
-      <button class="btn btn-ghost" id="confirm-cancel-btn" type="button" style="margin-left:8px">Cancel</button>
-    </div>
-    <div id="confirm-step-2" style="display:none">
-      <p id="confirm-done-msg" style="margin-bottom:12px"></p>
-      <p><strong>Would you like to save this stay to your own calendar?</strong></p>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
-        <a class="btn btn-primary" id="cal-google-link" target="_blank" rel="noopener">Google Calendar</a>
-        <button class="btn btn-ghost" id="cal-ics-btn" type="button">Apple / Outlook (.ics)</button>
-        <button class="btn btn-ghost" id="cal-no-btn" type="button">No thanks</button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -299,8 +278,35 @@
       <textarea id="edit-notes" rows="3"></textarea>
     </div>
 
-    <button class="btn btn-primary" id="edit-save-btn">Save changes</button>
-    <button class="btn btn-ghost" id="edit-cancel-btn" type="button" style="margin-left:8px">Cancel</button>
+    <div class="action-row fixed">
+      <button class="btn btn-primary" id="edit-save-btn">Save changes</button>
+      <button class="btn btn-ghost" id="edit-cancel-btn" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="confirm-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+    <h3 id="confirm-modal-title">Please check your booking</h3>
+    <div id="confirm-step-1">
+      <p class="sub" id="confirm-modal-sub">This is what will be saved. Confirm it, go back and edit it, or cancel.</p>
+      <pre id="confirm-modal-body" style="white-space:pre-wrap;font-family:inherit;font-size:0.95rem;line-height:1.6;margin:0 0 20px"></pre>
+      <div class="form-error" id="confirm-error"></div>
+      <div class="action-row">
+        <button class="btn btn-primary" id="confirm-yes-btn" type="button">Confirm</button>
+        <button class="btn btn-ghost" id="confirm-edit-btn" type="button">Edit</button>
+        <button class="btn btn-ghost" id="confirm-cancel-btn" type="button">Cancel</button>
+      </div>
+    </div>
+    <div id="confirm-step-2" style="display:none">
+      <p id="confirm-done-msg" style="margin-bottom:12px"></p>
+      <p><strong>Would you like to save this stay to your own calendar?</strong></p>
+      <div class="action-row" style="margin-top:12px">
+        <a class="btn btn-primary" id="cal-google-link" target="_blank" rel="noopener">Google Calendar</a>
+        <button class="btn btn-ghost" id="cal-ics-btn" type="button">Apple / Outlook (.ics)</button>
+        <button class="btn btn-ghost" id="cal-no-btn" type="button">No thanks</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -718,8 +724,10 @@
     return (c.master && c.middle && c.first) ? c : null;
   }
 
-  function summaryText(start, end) {
-    const { dates, costs } = fmtRangeParts(start, end, bookingConfigIfComplete());
+  function summaryText(start, end, cfg) {
+    const config = cfg === undefined ? bookingConfigIfComplete()
+      : ((cfg && cfg.master && cfg.middle && cfg.first) ? cfg : null);
+    const { dates, costs } = fmtRangeParts(start, end, config);
     return costs ? `${dates}\nCosts: ${costs}` : dates;
   }
 
@@ -794,7 +802,7 @@
   }
 
   // The same lines the saved booking description will contain.
-  // "3 Nights: £45 plus Cleaning: £82 - Total: £127" — same wording as the
+  // "Cost: 3 Nights: £45 plus Cleaning: £82 - Total: £127" — same wording as the
   // saved booking description and the shared Google Calendar event.
   function fmtMoneyShort(n) {
     return Number.isInteger(n) ? `£${n}` : `£${n.toFixed(2)}`;
@@ -804,28 +812,28 @@
     const nights = nightsBetween(v.start, v.end);
     if (!(nights > 0)) return null;
     const nightly = nights * dailyRate;
-    const base = `${nights} Night${nights === 1 ? '' : 's'}: ${fmtMoneyShort(nightly)}`;
+    const base = `Cost: ${nights} Night${nights === 1 ? '' : 's'}: ${fmtMoneyShort(nightly)}`;
     const cleaning = cleaningChargeFor({ middle: v.middle, first: v.first });
     if (cleaning === null) return base;
     return `${base} plus Cleaning: ${fmtMoneyShort(cleaning)} - Total: ${fmtMoneyShort(nightly + cleaning)}`;
   }
 
-  function bookingDetailsText(v) {
+  function bookingDetailsText(v, status) {
     const lines = [];
-    lines.push(`Provisional - ${v.whoGoing}`);
-    lines.push(`Arrival time at flat: ${fmtDateTimeLine(v.start, v.arrival)}`);
-    lines.push(`Flat leave time: ${fmtDateTimeLine(v.end, v.leave)}`);
+    lines.push(`${status || 'Provisional'} - ${v.whoGoing}`);
+    if (v.arrival) lines.push(`Arrival time at flat: ${fmtDateTimeLine(v.start, v.arrival)}`);
+    if (v.leave) lines.push(`Flat leave time: ${fmtDateTimeLine(v.end, v.leave)}`);
     const costsLine = costsLineFor(v);
     if (costsLine) lines.push(costsLine);
-    lines.push(`Master bedroom: ${v.master}`);
-    lines.push(`Middle bedroom: ${v.middle}`);
-    lines.push(`1st bedroom: ${v.first}`);
-    lines.push(`Sofa bed required: ${v.sofa}`);
+    if (v.master) lines.push(`Master bedroom: ${v.master}`);
+    if (v.middle) lines.push(`Middle bedroom: ${v.middle}`);
+    if (v.first) lines.push(`1st bedroom: ${v.first}`);
+    if (v.sofa) lines.push(`Sofa bed required: ${v.sofa}`);
     if (v.notes) lines.push(`Notes: ${v.notes}`);
     return lines.join('\n');
   }
-  function bookingPreviewText(v) {
-    return `${summaryText(v.start, v.end)}\n\n${bookingDetailsText(v)}`;
+  function bookingPreviewText(v, status) {
+    return `${summaryText(v.start, v.end, v)}\n\n${bookingDetailsText(v, status)}`;
   }
 
   function resetBookingForm() {
@@ -839,11 +847,21 @@
   }
 
   let pendingBooking = null;
+  // 'new' = a fresh request; 'edit' = saving changes to an existing booking
+  // (editCal.bookingId), which has no calendar-export step afterwards.
+  let confirmMode = 'new';
+  let editStatusLabel = 'Provisional';
 
-  function openConfirmModal(v) {
+  function openConfirmModal(v, mode, statusLabel) {
     pendingBooking = v;
-    document.getElementById('confirm-modal-title').textContent = 'Please check your booking';
-    document.getElementById('confirm-modal-body').textContent = bookingPreviewText(v);
+    confirmMode = mode || 'new';
+    const isEdit = confirmMode === 'edit';
+    document.getElementById('confirm-modal-title').textContent = isEdit ? 'Please check your changes' : 'Please check your booking';
+    document.getElementById('confirm-modal-sub').textContent = isEdit
+      ? 'This is what will be saved. Confirm the changes, go back and edit them, or cancel the edit.'
+      : 'This is what will be saved. Confirm it, go back and edit it, or cancel.';
+    document.getElementById('confirm-cancel-btn').textContent = isEdit ? 'Cancel edit' : 'Cancel';
+    document.getElementById('confirm-modal-body').textContent = bookingPreviewText(v, statusLabel);
     document.getElementById('confirm-error').classList.remove('show');
     document.getElementById('confirm-step-1').style.display = '';
     document.getElementById('confirm-step-2').style.display = 'none';
@@ -915,12 +933,14 @@
   document.getElementById('confirm-cancel-btn').addEventListener('click', () => {
     pendingBooking = null;
     closeConfirmModal();
-    resetBookingForm();
+    if (confirmMode === 'edit') closeEditModal();
+    else resetBookingForm();
   });
 
   document.getElementById('confirm-yes-btn').addEventListener('click', async () => {
     const v = pendingBooking;
     if (!v) return;
+    if (confirmMode === 'edit') { await saveEditedBooking(v); return; }
     const errEl = document.getElementById('booking-error');
     const okEl = document.getElementById('booking-ok');
     const modalErr = document.getElementById('confirm-error');
@@ -983,6 +1003,7 @@
   async function openEditModal(booking, reloadFn) {
     if (!booking) return;
     editCal.bookingId = booking.id;
+    editStatusLabel = booking.status === 'confirmed' ? 'Confirmed' : 'Provisional';
     editCal.reloadFn = reloadFn;
     editCal.start = booking.start_date;
     editCal.end = booking.end_date;
@@ -1074,7 +1095,8 @@
   // (dates picked, fields changed) was getting lost from an accidental
   // click off the modal. It now only closes via the × or Cancel button.
 
-  document.getElementById('edit-save-btn').addEventListener('click', async () => {
+  // Save changes: validate, then show the summary to confirm before saving.
+  document.getElementById('edit-save-btn').addEventListener('click', () => {
     const errEl = document.getElementById('edit-error');
     errEl.classList.remove('show');
     try {
@@ -1085,34 +1107,59 @@
       if (!whoGoing) {
         throw new Error('Who’s going? is required.');
       }
-      const selectedArrival = document.querySelector('input[name="edit-arrival-time"]:checked')?.value || '';
-      const selectedLeave = document.querySelector('input[name="edit-leave-time"]:checked')?.value || '';
-      const selectedMaster = document.querySelector('input[name="edit-master-bedroom-config"]:checked')?.value || '';
-      const selectedMiddle = document.querySelector('input[name="edit-middle-bedroom-config"]:checked')?.value || '';
-      const selectedFirst = document.querySelector('input[name="edit-first-bedroom-config"]:checked')?.value || '';
-      const selectedSofaBed = document.querySelector('input[name="edit-sofa-bed-required"]:checked')?.value || '';
-
-      const result = await Api.editBooking(editCal.bookingId, {
-        start_date: editCal.start,
-        end_date: editCal.end,
-        who_going: whoGoing,
-        arrival_time: selectedArrival || null,
-        departure_time: selectedLeave || null,
-        master_bedroom_config: selectedMaster,
-        middle_bedroom_config: selectedMiddle,
-        first_bedroom_config: selectedFirst,
-        sofa_bed_required: selectedSofaBed,
+      const v = {
+        start: editCal.start,
+        end: editCal.end,
+        whoGoing,
+        arrival: radioValue('edit-arrival-time'),
+        leave: radioValue('edit-leave-time'),
+        master: radioValue('edit-master-bedroom-config'),
+        middle: radioValue('edit-middle-bedroom-config'),
+        first: radioValue('edit-first-bedroom-config'),
+        sofa: radioValue('edit-sofa-bed-required'),
         notes: document.getElementById('edit-notes').value.trim(),
-      });
-      if (result && result.google_calendar_warning) alert(result.google_calendar_warning);
-      closeEditModal();
-      if (editCal.reloadFn) editCal.reloadFn();
-      loadBookingCalendar();
+      };
+      openConfirmModal(v, 'edit', editStatusLabel);
     } catch (e) {
       errEl.textContent = e.message;
       errEl.classList.add('show');
     }
   });
+
+  async function saveEditedBooking(v) {
+    const errEl = document.getElementById('edit-error');
+    const modalErr = document.getElementById('confirm-error');
+    const yesBtn = document.getElementById('confirm-yes-btn');
+    modalErr.classList.remove('show');
+    yesBtn.disabled = true;
+    try {
+      const result = await Api.editBooking(editCal.bookingId, {
+        start_date: v.start,
+        end_date: v.end,
+        who_going: v.whoGoing,
+        arrival_time: v.arrival || null,
+        departure_time: v.leave || null,
+        master_bedroom_config: v.master,
+        middle_bedroom_config: v.middle,
+        first_bedroom_config: v.first,
+        sofa_bed_required: v.sofa,
+        notes: v.notes,
+      });
+      pendingBooking = null;
+      closeConfirmModal();
+      if (result && result.google_calendar_warning) alert(result.google_calendar_warning);
+      closeEditModal();
+      if (editCal.reloadFn) editCal.reloadFn();
+      loadBookingCalendar();
+    } catch (e) {
+      // Back to the edit form with the problem shown there.
+      closeConfirmModal();
+      errEl.textContent = e.message;
+      errEl.classList.add('show');
+    } finally {
+      yesBtn.disabled = false;
+    }
+  }
 
   /* -------- Boot -------- */
 

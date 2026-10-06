@@ -21,7 +21,7 @@ function fmtDateTimeLine(dateStr, time) {
   return datePart || time || null;
 }
 
-// "3 Nights: £300 plus Cleaning: £50 - Total: £350" — worked out from the
+// "Cost: 3 Nights: £300 plus Cleaning: £50 - Total: £350" — worked out from the
 // current charges in the settings table. Whole pounds show without pence.
 // Returns null if the nightly rate hasn't been set up yet; without a cleaning
 // fee it's just the nights part.
@@ -45,7 +45,7 @@ async function getCostsLine({ startDate, endDate, middleBedroomConfig, firstBedr
   if (middleBedroomConfig && middleBedroomConfig !== 'Not Required') rooms += 1;
   if (firstBedroomConfig && firstBedroomConfig !== 'Not Required') rooms += 1;
   const feeRaw = rooms >= 2 ? row.cleaning_fee_2_rooms : row.cleaning_fee_1_room;
-  const base = `${nights} Night${nights === 1 ? '' : 's'}: ${fmtMoney(nightly)}`;
+  const base = `Cost: ${nights} Night${nights === 1 ? '' : 's'}: ${fmtMoney(nightly)}`;
   if (feeRaw === null || feeRaw === undefined) return base;
   const cleaning = Number(feeRaw);
   return `${base} plus Cleaning: ${fmtMoney(cleaning)} - Total: ${fmtMoney(nightly + cleaning)}`;
