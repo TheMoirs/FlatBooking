@@ -97,6 +97,9 @@ const Api = {
   async adminSetUserBlocked(id, blocked) {
     return Api._send(`/api/admin/users/${id}/${blocked ? 'block' : 'unblock'}`, {}, 'POST');
   },
+  async adminNewAgentLink() {
+    return Api._send('/api/admin/agent-link', {}, 'POST');
+  },
   async adminResetLink(id) {
     return Api._send(`/api/admin/users/${id}/reset-link`, {}, 'POST');
   },
@@ -269,6 +272,11 @@ function buildAuthModal() {
         </div>
         <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center">Finish creating account</button>
       </form>
+
+      <div id="pending-panel" style="display:none">
+        <p id="pending-message" style="line-height:1.6;margin-top:0"></p>
+        <button class="btn btn-primary" type="button" id="pending-ok-btn" style="width:100%;justify-content:center">OK</button>
+      </div>
     </div>
   `;
   document.body.appendChild(wrap);
@@ -296,6 +304,7 @@ function buildAuthModal() {
   });
 
   wrap.querySelector('.close-x').addEventListener('click', closeAuthModal);
+  wrap.querySelector('#pending-ok-btn').addEventListener('click', closeAuthModal);
   wrap.addEventListener('click', (e) => { if (e.target === wrap) closeAuthModal(); });
 
   wrap.querySelector('#switch-to-register').addEventListener('click', (e) => {
@@ -361,14 +370,13 @@ function buildAuthModal() {
     e.preventDefault();
     hideAuthError();
     try {
-      const { user } = await Api.register({
+      const result = await Api.register({
         name: document.getElementById('reg-name').value,
         email: document.getElementById('reg-email').value,
         phone: document.getElementById('reg-phone').value,
         password: document.getElementById('reg-password').value,
       });
-      currentUser = user;
-      afterAuthSuccess();
+      afterSignUp(result);
     } catch (err) {
       showAuthError(err.message);
     }
@@ -382,13 +390,12 @@ function buildAuthModal() {
       return;
     }
     try {
-      const { user } = await Api.googleCompleteSignUp(
+      const result = await Api.googleCompleteSignUp(
         pendingGoogleSignup.token,
         document.getElementById('google-phone').value
       );
       pendingGoogleSignup = null;
-      currentUser = user;
-      afterAuthSuccess();
+      afterSignUp(result);
     } catch (err) {
       showAuthError(err.message);
     }
@@ -473,7 +480,7 @@ function refreshAuthDivider() {
   const divider = document.getElementById('auth-divider');
   const phoneForm = document.getElementById('google-phone-form');
   if (!divider || !phoneForm) return;
-  const choosing = ['google-phone-form', 'forgot-form', 'reset-form'].every((id) => document.getElementById(id).style.display === 'none');
+  const choosing = ['google-phone-form', 'forgot-form', 'reset-form', 'pending-panel'].every((id) => document.getElementById(id).style.display === 'none');
   divider.style.display = (choosing && googleSignInAvailable === true) ? '' : 'none';
 }
 
@@ -485,13 +492,15 @@ function showAuthMode(mode) {
   const isGooglePhone = mode === 'google-phone';
   const isForgot = mode === 'forgot';
   const isReset = mode === 'reset';
-  const plain = isForgot || isReset; // no Google button / "or" divider
+  const isPending = mode === 'pending';
+  const plain = isForgot || isReset || isPending; // no Google button / "or" divider
 
   modal.querySelector('#login-form').style.display = !isGooglePhone && !plain && isLogin ? 'block' : 'none';
   modal.querySelector('#register-form').style.display = !isGooglePhone && !plain && !isLogin ? 'block' : 'none';
   modal.querySelector('#google-phone-form').style.display = isGooglePhone ? 'block' : 'none';
   modal.querySelector('#forgot-form').style.display = isForgot ? 'block' : 'none';
   modal.querySelector('#reset-form').style.display = isReset ? 'block' : 'none';
+  modal.querySelector('#pending-panel').style.display = isPending ? 'block' : 'none';
   // The Google button + divider only make sense while picking how to sign
   // in — not mid-way through finishing a Google sign-up, and not at all if
   // it turned out not to be available (googleSignInAvailable === false).
@@ -502,7 +511,11 @@ function showAuthMode(mode) {
   // sign-in button is actually showing.
   refreshAuthDivider();
 
-  if (isForgot) {
+  if (isPending) {
+    modal.querySelector('#auth-modal-title').textContent = 'Thanks for signing up';
+    modal.querySelector('#auth-modal-sub').textContent = '';
+    modal.querySelector('#pending-message').textContent = pendingApprovalMessage;
+  } else if (isForgot) {
     modal.querySelector('#auth-modal-title').textContent = 'Reset your password';
     modal.querySelector('#auth-modal-sub').textContent = "Enter your email and we'll send you a link to choose a new password.";
   } else if (isReset) {
@@ -515,7 +528,7 @@ function showAuthMode(mode) {
     modal.querySelector('#auth-modal-title').textContent = isLogin ? 'Log in' : 'Create your account';
     modal.querySelector('#auth-modal-sub').textContent = isLogin
       ? 'Log in to book your stay at Mirador de Calahonda.'
-      : "We just need a few details so we know who's staying — then you can pick your dates.";
+      : "The flat is only for family and friends, so once you've signed up Ali will check and approve your account before you can book.";
   }
   hideAuthError();
 }
@@ -540,6 +553,19 @@ function hideAuthError() {
   const el = document.getElementById('auth-error');
   if (el) { el.textContent = ''; el.classList.remove('show'); }
 }
+
+// A new account either logs straight in (admins) or waits for Ali to
+// approve it — in which case say so, rather than logging them in.
+function afterSignUp(result) {
+  if (result && result.pending) {
+    pendingApprovalMessage = result.message;
+    showAuthMode('pending');
+    return;
+  }
+  currentUser = result.user;
+  afterAuthSuccess();
+}
+let pendingApprovalMessage = '';
 
 function afterAuthSuccess() {
   closeAuthModal();

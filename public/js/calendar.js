@@ -52,15 +52,18 @@ function renderMonthGrid(year, month, ranges = [], options = {}) {
     const occupied = ranges.filter((r) => dateStr >= r.start && dateStr <= r.end);
     const description = occupied[0] && occupied[0].description ? occupied[0].description : null;
     const classes = ['day'];
+    // The bookings calendar (options.showPastBookings) keeps past stays
+    // visible, just faded; everywhere else past days are simply greyed out.
+    const showAsBooked = occupied.length && (dateStr >= today || options.showPastBookings);
     if (dateStr < today) classes.push('past');
-    else if (occupied.length) {
+    if (showAsBooked) {
       classes.push('booked');
       // Confirmed and provisional bookings get different shading — see
       // .cal-grid .day.booked.status-* below. Falls back to the plain
       // "booked" look for anything with no recognised status.
       const status = occupied[0].status;
       if (status === 'confirmed' || status === 'provisional') classes.push(`status-${status}`);
-    } else classes.push('available');
+    } else if (dateStr >= today) classes.push('available');
     if (dateStr === today) classes.push('today');
     if (options.selectedStart && dateStr === options.selectedStart) classes.push('selected-start');
 
@@ -92,7 +95,8 @@ function renderMonthGrid(year, month, ranges = [], options = {}) {
       // touch devices.
       const fullText = description || 'Booked';
       const noteText = description ? stripStatusPrefix(description.split('\n')[0]) : 'Booked';
-      html += `<div class="${classes.join(' ')}" title="${escapeHtml(fullText)}" data-full-desc="${escapeHtml(fullText)}"><span class="date-number">${day}</span><span class="date-note">${escapeHtml(noteText)}</span></div>`;
+      const bookingId = occupied[0].id != null ? escapeHtml(occupied[0].id) : '';
+      html += `<div class="${classes.join(' ')}" title="${escapeHtml(fullText)}" data-full-desc="${escapeHtml(fullText)}" data-booking-id="${bookingId}" role="button" tabindex="0"><span class="date-number">${day}</span><span class="date-note">${escapeHtml(noteText)}</span></div>`;
     } else {
       html += `<div class="${classes.join(' ')}"><span class="date-number">${day}</span></div>`;
     }
@@ -123,13 +127,25 @@ function renderCalendarMonths(container, year, startMonth, count, ranges = [], o
   }
   // A tap on a booked day shows the same extended description a PC gets on
   // hover, with an X to dismiss — mainly for touch devices, which have no
-  // hover state at all. Bound once per container (re-rendering the grid
-  // replaces the day elements but the container itself persists).
+  // hover state at all — unless the caller passed options.onBookingClick
+  // (the bookings calendar, which opens the booking for editing instead).
+  // Bound once per container (re-rendering the grid replaces the day
+  // elements but the container itself persists), so the handler is read
+  // from the container each time.
+  container._onBookingClick = options.onBookingClick || null;
   if (!container.dataset.popupBound) {
     container.dataset.popupBound = '1';
+    const openBooked = (dayEl) => {
+      if (container._onBookingClick) container._onBookingClick(dayEl.dataset.bookingId, dayEl.dataset.fullDesc);
+      else showBookingPopup(dayEl.dataset.fullDesc);
+    };
     container.addEventListener('click', (e) => {
       const dayEl = e.target.closest('.day.booked');
-      if (dayEl) showBookingPopup(dayEl.dataset.fullDesc);
+      if (dayEl) openBooked(dayEl);
+    });
+    container.addEventListener('keydown', (e) => {
+      const dayEl = e.target.closest('.day.booked');
+      if (dayEl && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openBooked(dayEl); }
     });
   }
 }

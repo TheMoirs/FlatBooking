@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Availability — Mirador de Calahonda</title>
 <link rel="stylesheet" href="/css/styles.css" />
+<link rel="icon" href="/favicon.ico" sizes="32x32" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<link rel="manifest" href="/site.webmanifest" />
+<meta name="theme-color" content="#1F5266" />
 </head>
 <body>
 
@@ -20,8 +25,12 @@
 <div class="container" style="padding:48px 24px 80px">
   <h1 style="margin-bottom:8px">Availability</h1>
   <p id="avail-intro" style="color:var(--ink-soft);margin-bottom:8px">Pick a check-in date, then a check-out date from the available (unshaded) days.</p>
-  <p id="avail-login-note" style="display:none;color:var(--ink-soft);font-size:0.9rem;margin-bottom:28px"><a href="https://flatbooking.onrender.com/availability.html#" id="avail-login-link">Log in</a> to book holiday dates.</p>
+  <div id="avail-login-note" style="display:none;max-width:540px;margin-bottom:28px">
+    <p style="color:var(--ink-soft)">The flat is only available to family and friends, so please log in to see when it's free.</p>
+    <button class="btn btn-primary" id="avail-login-link" type="button">Log in</button>
+  </div>
 
+  <div id="avail-content" style="display:none">
   <div class="calendar-card" style="max-width:760px">
     <div class="calendar-toolbar">
       <h3 id="avail-cal-label">Loading…</h3>
@@ -43,6 +52,7 @@
     <p id="avail-selection-summary" style="font-weight:600"></p>
     <button class="btn btn-primary" id="avail-book-btn" disabled>Book these dates</button>
     <button class="btn btn-ghost btn-small" id="avail-reset-btn" style="margin-left:8px">Clear selection</button>
+  </div>
   </div>
 </div>
 
@@ -154,19 +164,22 @@
   document.getElementById('avail-book-btn').addEventListener('click', () => {
     onBookNowClick({ start: availCal.start, end: availCal.end });
   });
-  document.getElementById('avail-login-link').addEventListener('click', (e) => {
-    e.preventDefault();
+  document.getElementById('avail-login-link').addEventListener('click', () => {
+    // Back here once logged in.
+    postAuthRedirect = '/availability.html';
     openAuthModal('login');
   });
 
+  // Availability is for logged-in family and friends only — the server
+  // refuses it otherwise, so don't show an empty calendar to anyone else.
   (async function boot() {
     const user = await initSession();
     if (!user) {
-      document.getElementById('avail-book-btn').remove();
-      document.getElementById('avail-reset-btn').remove();
       document.getElementById('avail-intro').remove();
       document.getElementById('avail-login-note').style.display = 'block';
+      return;
     }
+    document.getElementById('avail-content').style.display = 'block';
     await loadAvailCalendar();
   })();
 </script>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Casa tile, simplified so it stays clear at browser-tab size -->
+  <rect x="0" y="0" width="64" height="64" rx="10" fill="#2B2A27"/>
+  <rect x="4" y="4" width="56" height="56" fill="#E3A23C"/>
+  <rect x="4" y="4" width="16" height="6" fill="#1F5266"/><rect x="28" y="4" width="16" height="6" fill="#C1592F"/>
+  <rect x="12" y="54" width="16" height="6" fill="#1F5266"/><rect x="36" y="54" width="16" height="6" fill="#C1592F"/>
+  <rect x="4" y="18" width="6" height="20" fill="#1F5266"/><rect x="54" y="26" width="6" height="20" fill="#C1592F"/>
+  <rect x="11" y="11" width="42" height="42" rx="2" fill="#FBF8F3"/>
+  <path d="M17 44V41h2V23h-2V20h8l7 14 7-14h8v3h-2v18h2v3h-10v-3h2V29l-6 12h-2l-6-12v12h2v3z" fill="#1E2856"/>
+</svg>

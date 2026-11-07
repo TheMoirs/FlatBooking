@@ -1,16 +1,20 @@
 const express = require('express');
 const { query } = require('../db');
-const { attachUser, requireAdmin, resetUrl } = require('../auth');
+const crypto = require('crypto');
+const { attachUser, requireAdmin, resetUrl, publicBase } = require('../auth');
+const { sendMail } = require('../mailer');
 const { fetchExternalBusyRanges, deriveGoogleCalendarIdFromUrl, checkGoogleCalendarWriteAccess, deleteGoogleCalendarEvent } = require('../calendarSync');
 
 const router = express.Router();
 
 router.get('/settings', attachUser, requireAdmin, async (req, res) => {
   const result = await query(
-    `SELECT google_calendar_url, google_calendar_id, daily_rate, cleaning_fee_1_room, cleaning_fee_2_rooms, updated_at
+    `SELECT google_calendar_url, google_calendar_id, daily_rate, cleaning_fee_1_room, cleaning_fee_2_rooms, updated_at, agent_key
      FROM settings WHERE id = 1`
   );
-  const settings = result.rows[0] || {};
+  const { agent_key: savedKey, ...settings } = result.rows[0] || {};
+  const agentKey = savedKey || (await setNewAgentKey());
+  settings.agent_bookings_url = agentBookingsUrl(req, agentKey);
   const calendarStatus = await checkGoogleCalendarWriteAccess();
   res.json({ settings, calendar_status: calendarStatus });
 });
@@ -25,6 +29,23 @@ function parseCharge(value) {
   if (!Number.isFinite(num) || num < 0) return { ok: false };
   return { ok: true, value: num };
 }
+
+// The Agent Bookings page only works with the secret key in its link.
+function agentBookingsUrl(req, key) {
+  return `${publicBase(req)}/agent-bookings.html?key=${encodeURIComponent(key)}`;
+}
+async function setNewAgentKey() {
+  const key = crypto.randomBytes(18).toString('base64url');
+  await query('UPDATE settings SET agent_key = $1 WHERE id = 1', [key]);
+  return key;
+}
+
+// POST /api/admin/agent-link — replaces the secret key, so the old Agent
+// Bookings link stops working (e.g. if it has been passed to the wrong person).
+router.post('/agent-link', attachUser, requireAdmin, async (req, res) => {
+  const key = await setNewAgentKey();
+  res.json({ agent_bookings_url: agentBookingsUrl(req, key) });
+});
 
 router.put('/settings', attachUser, requireAdmin, async (req, res) => {
   const { google_calendar_url, daily_rate, cleaning_fee_1_room, cleaning_fee_2_rooms } = req.body || {};
@@ -64,7 +85,7 @@ router.put('/settings', attachUser, requireAdmin, async (req, res) => {
 
 router.get('/users', attachUser, requireAdmin, async (req, res) => {
   const result = await query(
-    `SELECT u.id, u.name, u.email, u.phone, u.role, u.blocked, u.created_at,
+    `SELECT u.id, u.name, u.email, u.phone, u.role, u.blocked, u.pending_approval, u.created_at,
             (u.password_hash IS NOT NULL) AS has_password,
             (u.google_id IS NOT NULL) AS has_google,
             (SELECT COUNT(*)::int FROM bookings b WHERE b.user_id = u.id) AS booking_count
@@ -75,7 +96,7 @@ router.get('/users', attachUser, requireAdmin, async (req, res) => {
 });
 
 async function findUser(id) {
-  const r = await query('SELECT id, name, email, role, blocked FROM users WHERE id = $1', [id]);
+  const r = await query('SELECT id, name, email, role, blocked, pending_approval FROM users WHERE id = $1', [id]);
   return r.rows[0] || null;
 }
 
@@ -116,8 +137,24 @@ async function setBlocked(req, res, blocked) {
   if (blocked && user.id === req.user.id) {
     return res.status(400).json({ error: 'You can’t block your own account.' });
   }
-  await query('UPDATE users SET blocked = $1 WHERE id = $2', [blocked, user.id]);
-  res.json({ user: { ...user, blocked } });
+  await query('UPDATE users SET blocked = $1, pending_approval = FALSE WHERE id = $2', [blocked, user.id]);
+
+  // Unblocking someone who was waiting for approval: tell them they're in.
+  if (!blocked && user.pending_approval) {
+    try {
+      await sendMail({
+        to: user.email,
+        subject: 'Your Casa Moir account is ready',
+        text:
+          `Hi ${user.name.split(' ')[0]},\n\n` +
+          `Your account on the Casa Moir booking site has been approved, so you can now log in, see when the flat is free and request dates:\n\n` +
+          `${publicBase(req)}/\n\nSee you in Calahonda!`,
+      });
+    } catch (err) {
+      console.error('Could not send the approval email:', err.message);
+    }
+  }
+  res.json({ user: { ...user, blocked, pending_approval: false } });
 }
 router.post('/users/:id/block', attachUser, requireAdmin, (req, res) => setBlocked(req, res, true));
 router.post('/users/:id/unblock', attachUser, requireAdmin, (req, res) => setBlocked(req, res, false));

@@ -15,9 +15,12 @@ const {
   resetUrl,
   signPendingGoogleSignup,
   verifyPendingGoogleSignup,
+  publicBase,
+  blockedMessage,
 } = require('../auth');
 
-const BLOCKED_MESSAGE = 'This account has been blocked. Please contact Ali or Dawn.';
+// Who gets the "new account to approve" email.
+const APPROVALS_EMAIL = process.env.APPROVALS_EMAIL || 'ali@themoirs.co.uk';
 
 const router = express.Router();
 
@@ -54,19 +57,60 @@ router.post('/register', async (req, res) => {
   }
 
   const passwordHash = await hashPassword(password);
-  const role = isAdminEmail(normalisedEmail) ? 'admin' : 'user';
-
-  const result = await query(
-    `INSERT INTO users (name, email, phone, password_hash, role)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, name, email, phone, role`,
-    [name.trim(), normalisedEmail, phone.trim(), passwordHash, role]
-  );
-
-  const user = result.rows[0];
-  setSessionCookie(res, user);
-  res.status(201).json({ user });
+  await createAccount(req, res, {
+    name: name.trim(),
+    email: normalisedEmail,
+    phone: phone.trim(),
+    passwordHash,
+    googleId: null,
+  });
 });
+
+// Creates a new account. The flat is only for family and friends, so
+// everyone except the admin emails starts blocked and "pending approval":
+// they aren't logged in, Ali gets an email with their details and a link to
+// approve them, and they're told what's happening.
+async function createAccount(req, res, { name, email, phone, passwordHash, googleId }) {
+  const isAdmin = isAdminEmail(email);
+  const result = await query(
+    `INSERT INTO users (name, email, phone, password_hash, google_id, role, blocked, pending_approval)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
+     RETURNING id, name, email, phone, role`,
+    [name, email, phone, passwordHash, googleId, isAdmin ? 'admin' : 'user', !isAdmin]
+  );
+  const user = result.rows[0];
+
+  if (isAdmin) {
+    setSessionCookie(res, user);
+    return res.status(201).json({ user });
+  }
+
+  const approveLink = `${publicBase(req)}/dashboard.html?tab=users&user=${user.id}`;
+  try {
+    const sent = await sendMail({
+      to: APPROVALS_EMAIL,
+      subject: `New Casa Moir account to approve: ${user.name}`,
+      text:
+        `Someone has created an account on the Casa Moir booking site. They can't log in until you approve them.\n\n` +
+        `Name: ${user.name}\n` +
+        `Email: ${user.email}\n` +
+        `Phone: ${user.phone}\n` +
+        `Signed up with: ${googleId ? 'Google' : 'email and password'}\n\n` +
+        `To approve them, open the Users list and click Approve next to their name:\n${approveLink}\n\n` +
+        `If you don't know who they are, you can leave them blocked or delete the account from the same list.`,
+    });
+    if (!sent) console.warn('New account needs approving but email is not configured (RESEND_API_KEY or SMTP_*).');
+  } catch (err) {
+    console.error('Could not send the new-account email:', err.message);
+  }
+
+  res.status(201).json({
+    pending: true,
+    message:
+      `Thanks, ${user.name.split(' ')[0]}. The flat is only available to family and friends, so Ali needs to approve ` +
+      `your account before you can log in. He's been sent your details, and you'll get an email as soon as you're approved.`,
+  });
+}
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
@@ -76,7 +120,7 @@ router.post('/login', async (req, res) => {
 
   const normalisedEmail = String(email).trim().toLowerCase();
   const result = await query(
-    'SELECT id, name, email, phone, role, blocked, password_hash FROM users WHERE email = $1',
+    'SELECT id, name, email, phone, role, blocked, pending_approval, password_hash FROM users WHERE email = $1',
     [normalisedEmail]
   );
   const user = result.rows[0];
@@ -89,11 +133,12 @@ router.post('/login', async (req, res) => {
   }
 
   if (user.blocked) {
-    return res.status(403).json({ error: BLOCKED_MESSAGE });
+    return res.status(403).json({ error: blockedMessage(user) });
   }
 
   delete user.password_hash;
   delete user.blocked;
+  delete user.pending_approval;
   const loggedIn = await promoteIfAdminEmail(user);
   setSessionCookie(res, loggedIn);
   res.json({ user: loggedIn });
@@ -135,13 +180,13 @@ router.post('/google', async (req, res) => {
 
   // Already linked to a Google account — straight in.
   const byGoogleId = await query(
-    'SELECT id, name, email, phone, role, blocked FROM users WHERE google_id = $1',
+    'SELECT id, name, email, phone, role, blocked, pending_approval FROM users WHERE google_id = $1',
     [googleId]
   );
   if (byGoogleId.rows.length) {
     const row = byGoogleId.rows[0];
-    if (row.blocked) return res.status(403).json({ error: BLOCKED_MESSAGE });
-    const { blocked, ...rest } = row;
+    if (row.blocked) return res.status(403).json({ error: blockedMessage(row) });
+    const { blocked, pending_approval, ...rest } = row;
     const user = await promoteIfAdminEmail(rest);
     setSessionCookie(res, user);
     return res.json({ user });
@@ -149,11 +194,11 @@ router.post('/google', async (req, res) => {
 
   // An existing password account with the same (Google-verified) email —
   // link this Google identity onto it rather than creating a duplicate.
-  const byEmail = await query('SELECT id, name, email, phone, role, blocked FROM users WHERE email = $1', [email]);
+  const byEmail = await query('SELECT id, name, email, phone, role, blocked, pending_approval FROM users WHERE email = $1', [email]);
   if (byEmail.rows.length) {
     const row = byEmail.rows[0];
-    if (row.blocked) return res.status(403).json({ error: BLOCKED_MESSAGE });
-    const { blocked, ...rest } = row;
+    if (row.blocked) return res.status(403).json({ error: blockedMessage(row) });
+    const { blocked, pending_approval, ...rest } = row;
     await query('UPDATE users SET google_id = $1 WHERE id = $2', [googleId, rest.id]);
     const user = await promoteIfAdminEmail(rest);
     setSessionCookie(res, user);
@@ -190,17 +235,13 @@ router.post('/google/complete', async (req, res) => {
     return res.status(409).json({ error: 'An account already exists for that email — try logging in instead.' });
   }
 
-  const role = isAdminEmail(pending.email) ? 'admin' : 'user';
-  const result = await query(
-    `INSERT INTO users (name, email, phone, password_hash, google_id, role)
-     VALUES ($1, $2, $3, NULL, $4, $5)
-     RETURNING id, name, email, phone, role`,
-    [pending.name, pending.email, String(phone).trim(), pending.googleId, role]
-  );
-
-  const user = result.rows[0];
-  setSessionCookie(res, user);
-  res.status(201).json({ user });
+  await createAccount(req, res, {
+    name: pending.name,
+    email: pending.email,
+    phone: String(phone).trim(),
+    passwordHash: null,
+    googleId: pending.googleId,
+  });
 });
 
 // POST /api/auth/forgot — emails a reset link. Always answers the same way so
@@ -235,12 +276,12 @@ router.post('/reset', async (req, res) => {
   const expired = { error: 'That reset link has expired or already been used — please request a new one.' };
   let payload;
   try { payload = verifyPasswordReset(token); } catch (e) { return res.status(400).json(expired); }
-  const r = await query('SELECT id, name, email, phone, role, blocked, password_hash FROM users WHERE id = $1', [payload.id]);
+  const r = await query('SELECT id, name, email, phone, role, blocked, pending_approval, password_hash FROM users WHERE id = $1', [payload.id]);
   const user = r.rows[0];
   if (!user || resetFingerprint(user) !== payload.fp) return res.status(400).json(expired);
-  if (user.blocked) return res.status(403).json({ error: BLOCKED_MESSAGE });
+  if (user.blocked) return res.status(403).json({ error: blockedMessage(user) });
   await query('UPDATE users SET password_hash = $1 WHERE id = $2', [await hashPassword(password), user.id]);
-  const { password_hash, blocked, ...rest } = user;
+  const { password_hash, blocked, pending_approval, ...rest } = user;
   const loggedIn = await promoteIfAdminEmail(rest);
   setSessionCookie(res, loggedIn);
   res.json({ user: loggedIn });
@@ -252,7 +293,7 @@ router.post('/logout', (req, res) => {
 });
 
 router.get('/me', attachUser, (req, res) => {
-  if (req.blocked) return res.status(403).json({ user: null, error: BLOCKED_MESSAGE });
+  if (req.blocked) return res.status(403).json({ user: null, error: req.blockedMessage });
   if (!req.user) return res.status(401).json({ user: null });
   const { id, name, email, role } = req.user;
   res.json({ user: { id, name, email, role } });

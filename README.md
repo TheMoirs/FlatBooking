@@ -106,8 +106,9 @@ manager:
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
-| GET | `/api/availability` | Public | Booked/available date ranges (internal + linked calendar) |
-| POST | `/api/auth/register` | Public | Create an account |
+| GET | `/api/availability` | Logged in | Booked/available date ranges (internal + linked calendar), with names and status |
+| GET | `/api/agent-bookings?key=…` | Secret link | Every booking, for the Agent Bookings page (link shown in admin Settings) |
+| POST | `/api/auth/register` | Public | Create an account (starts pending until an admin approves it) |
 | POST | `/api/auth/login` | Public | Log in |
 | POST | `/api/auth/google` | Public | Sign in with a Google ID token (logs in, or flags a new sign-up as needing a phone number) |
 | POST | `/api/auth/google/complete` | Public | Finish a new Google sign-up once a phone number is supplied |
@@ -121,6 +122,15 @@ manager:
 | GET/PUT | `/api/admin/settings` | Admin | Read/save the linked calendar URL |
 
 ## Notes and assumptions
+
+- **New accounts need approving.** The flat is only for family and friends,
+  so every new account (except the admin emails) starts blocked and
+  "pending". Ali is emailed their details with a link to the Users tab
+  (set `APPROVALS_EMAIL` to send these somewhere else); clicking **Approve**
+  unblocks them and emails them to say they can log in.
+- **The database updates itself.** `schema.sql` is applied every time the
+  server starts (every statement in it is safe to re-run), so new columns
+  appear on Render without running `npm run migrate` by hand.
 
 - **Admin emails are hardcoded via an environment variable**, not stored in
   the database, so they can't accidentally be changed from within the site.

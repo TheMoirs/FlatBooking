@@ -107,3 +107,12 @@ INSERT INTO settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS apple_id TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS facebook_id TEXT;
+
+-- New accounts wait for an admin to approve them (the flat is family and
+-- friends only). They start blocked with pending_approval set; unblocking
+-- clears it and emails them to say they can log in.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_approval BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Secret key in the Agent Bookings link — only someone with the full link
+-- can see that page. Admins can replace it from Settings.
+ALTER TABLE settings ADD COLUMN IF NOT EXISTS agent_key TEXT;

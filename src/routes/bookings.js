@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const express = require('express');
 const { query } = require('../db');
 const { attachUser, requireAuth, requireAdmin } = require('../auth');
@@ -125,12 +126,15 @@ router.get('/charges', async (req, res) => {
 // Public — no login required. Returns every busy range (our own bookings
 // that are provisional or confirmed, plus anything on the linked external
 // calendar) so the homepage calendar can shade booked vs available dates.
-router.get('/availability', async (req, res) => {
+// Logged-in only: the flat is for family and friends, and the calendar shows
+// who is staying. Each of the flat's own bookings says whether it belongs to
+// the person asking (`mine`), so the calendar knows which ones they can edit.
+router.get('/availability', attachUser, requireAuth, async (req, res) => {
   const from = req.query.from || new Date().toISOString().slice(0, 10);
   const to = req.query.to || addMonths(from, 6);
 
   const internal = await query(
-    `SELECT b.id, b.start_date, b.end_date, b.status, b.google_event_id, b.who_going, u.name AS guest_name,
+    `SELECT b.id, b.user_id, b.start_date, b.end_date, b.status, b.google_event_id, b.who_going, u.name AS guest_name,
             b.arrival_time, b.departure_time, b.master_bedroom_config,
             b.middle_bedroom_config, b.first_bedroom_config, b.sofa_bed_required,
             b.notes, b.calendar_description
@@ -143,6 +147,7 @@ router.get('/availability', async (req, res) => {
 
   const ranges = internal.rows.map((b) => ({
     id: b.id,
+    mine: b.user_id === req.user.id,
     start: toDateOnlyValue(b.start_date),
     end: toDateOnlyValue(b.end_date),
     status: b.status,
@@ -229,14 +234,23 @@ router.get('/availability', async (req, res) => {
 // old bookings" checkbox in the dashboard's "My bookings" tab. "All
 // bookings" (the admin tab) has no such filter — it always returns the
 // complete history, oldest first.
-// GET /api/agent-bookings — public, no login. Backs the Agent Bookings page
-// (agent-bookings.html), which anyone with the link can open. Deliberately a
+// GET /api/agent-bookings — no login, but needs the secret key from the
+// Agent Bookings link (shown to admins in Settings). Backs agent-bookings.html. Deliberately a
 // separate, read-only endpoint rather than loosening GET /bookings?all=1:
 // that one returns guests' emails and phone numbers (and runs the Google
 // Calendar import/clean-up as a side effect), neither of which this page
 // needs or should expose. Only what the page actually shows is returned —
 // dates, who's going, room set-up, notes and status.
 router.get('/agent-bookings', async (req, res) => {
+  // Only for someone with the secret link (see Settings in the dashboard).
+  const settings = await query('SELECT agent_key FROM settings WHERE id = 1');
+  const expected = settings.rows[0] && settings.rows[0].agent_key;
+  const given = Buffer.from(String(req.query.key || ''));
+  const ok = Boolean(expected) && given.length === Buffer.byteLength(expected) &&
+    crypto.timingSafeEqual(given, Buffer.from(expected));
+  if (!ok) {
+    return res.status(403).json({ error: 'This link has expired or is not complete. Please ask Ali or Dawn for the current Agent Bookings link.' });
+  }
   const result = await query(
     `SELECT id, start_date, end_date, status, who_going, notes, source,
             arrival_time, departure_time,

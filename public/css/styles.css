@@ -389,6 +389,18 @@ section.tight { padding: 48px 0; }
 .cal-grid .day.booked.status-confirmed { background: var(--terracotta-dim); color: #7A3316; }
 .cal-grid .day.booked.status-provisional { background: #FCEBD3; color: #8A5A18; }
 .cal-grid .day.past { color: #C9C3B4; }
+/* Bookings calendar: past stays stay visible, just faded. */
+.cal-grid .day.past.booked { opacity: 0.55; }
+.cal-grid .day.booked { cursor: pointer; }
+
+/* List / Calendar switch on the bookings tabs */
+.view-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; margin: 4px 0 18px; background: var(--white); }
+.view-toggle button { border: 0; background: transparent; font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--ink-soft); padding: 8px 18px; min-height: 36px; border-radius: 999px; cursor: pointer; }
+.view-toggle button[aria-pressed="true"] { background: var(--sea); color: var(--white); }
+
+/* Users tab: the person an approval email linked to */
+.booking-row.highlight { box-shadow: 0 0 0 2px var(--sun); }
+.status-pill.pending { background: #FCEBD3; color: #8A5A18; }
 .cal-grid .day.today { box-shadow: inset 0 0 0 2px var(--sun); font-weight: 700; }
 .cal-grid .day.selected-start,
 .cal-grid .day.selected-end {

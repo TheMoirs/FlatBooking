@@ -73,9 +73,22 @@ function verifyPasswordReset(token) {
   if (payload.purpose !== 'password_reset') throw new Error('Not a reset token.');
   return payload;
 }
-function resetUrl(req, user) {
+// The site's own address, for links in emails: PUBLIC_URL if set, otherwise
+// whatever address this request came in on.
+function publicBase(req) {
   const base = process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
-  return `${base.replace(/\/$/, '')}/?reset=${encodeURIComponent(signPasswordReset(user))}`;
+  return base.replace(/\/$/, '');
+}
+function resetUrl(req, user) {
+  return `${publicBase(req)}/?reset=${encodeURIComponent(signPasswordReset(user))}`;
+}
+
+// New accounts start blocked until an admin approves them; they get a
+// friendlier message than someone who has actually been blocked.
+const BLOCKED_MESSAGE = 'This account has been blocked. Please contact Ali or Dawn.';
+const PENDING_MESSAGE = 'Your account is waiting for approval. The flat is only available to family and friends, so Ali will check your details and email you when you can log in.';
+function blockedMessage(user) {
+  return user && user.pending_approval ? PENDING_MESSAGE : BLOCKED_MESSAGE;
 }
 
 function setSessionCookie(res, user) {
@@ -112,10 +125,11 @@ async function attachUser(req, res, next) {
   if (token) {
     try {
       const payload = jwt.verify(token, process.env.JWT_SECRET);
-      const r = await query('SELECT id, name, email, role, blocked FROM users WHERE id = $1', [payload.id]);
+      const r = await query('SELECT id, name, email, role, blocked, pending_approval FROM users WHERE id = $1', [payload.id]);
       let row = r.rows[0];
       if (row && row.blocked) {
         req.blocked = true;
+        req.blockedMessage = blockedMessage(row);
       } else if (row) {
         row = await promoteIfAdminEmail(row);
         req.user = { id: row.id, email: row.email, role: row.role, name: row.name };
@@ -128,13 +142,13 @@ async function attachUser(req, res, next) {
 }
 
 function requireAuth(req, res, next) {
-  if (req.blocked) return res.status(403).json({ error: 'This account has been blocked. Please contact Ali or Dawn.' });
+  if (req.blocked) return res.status(403).json({ error: req.blockedMessage || BLOCKED_MESSAGE });
   if (!req.user) return res.status(401).json({ error: 'Please log in to continue.' });
   next();
 }
 
 function requireAdmin(req, res, next) {
-  if (req.blocked) return res.status(403).json({ error: 'This account has been blocked. Please contact Ali or Dawn.' });
+  if (req.blocked) return res.status(403).json({ error: req.blockedMessage || BLOCKED_MESSAGE });
   if (!req.user) return res.status(401).json({ error: 'Please log in to continue.' });
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access only.' });
   next();
@@ -155,6 +169,10 @@ module.exports = {
   verifyPasswordReset,
   resetFingerprint,
   resetUrl,
+  publicBase,
+  BLOCKED_MESSAGE,
+  PENDING_MESSAGE,
+  blockedMessage,
   signPendingGoogleSignup,
   verifyPendingGoogleSignup,
 };

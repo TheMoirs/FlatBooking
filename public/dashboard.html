@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>My Account — Mirador de Calahonda</title>
 <link rel="stylesheet" href="/css/styles.css" />
+<link rel="icon" href="/favicon.ico" sizes="32x32" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<link rel="manifest" href="/site.webmanifest" />
+<meta name="theme-color" content="#1F5266" />
 </head>
 <body>
 
@@ -141,6 +146,26 @@
     <div class="dash-panel" id="panel-my-bookings">
       <h2>My bookings</h2>
       <p style="color:var(--ink-soft)">Click a booking for its full details.</p>
+      <div class="view-toggle" role="group" aria-label="Show bookings as">
+        <button type="button" data-bookings-view="my:list" aria-pressed="true">List</button>
+        <button type="button" data-bookings-view="my:calendar" aria-pressed="false">Calendar</button>
+      </div>
+      <div class="calendar-card" id="my-bookings-cal" style="display:none;max-width:760px">
+        <div class="calendar-toolbar">
+          <h3 id="my-bookings-cal-label">Loading…</h3>
+          <div class="calendar-nav">
+            <button id="my-bookings-cal-prev" type="button" aria-label="Previous months">&#8249;</button>
+            <button id="my-bookings-cal-next" type="button" aria-label="Next months">&#8250;</button>
+          </div>
+        </div>
+        <div class="form-error" id="my-bookings-cal-error"></div>
+        <div class="calendar-months" id="my-bookings-cal-months"></div>
+        <div class="calendar-legend">
+          <span><span class="swatch confirmed"></span> Confirmed</span>
+          <span><span class="swatch provisional"></span> Provisional</span>
+        </div>
+        <p style="color:var(--ink-soft);font-size:0.88rem;margin:12px 0 0">Click one of your bookings to edit it, or anyone else’s to see the details.</p>
+      </div>
       <ul class="booking-list" id="my-bookings-list"></ul>
     </div>
 
@@ -148,10 +173,30 @@
     <div class="dash-panel" id="panel-all-bookings">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
         <h2 style="margin:0">All bookings</h2>
-        <a class="btn btn-ghost btn-small" href="/agent-bookings.html" target="_blank" rel="noopener">Agent Bookings</a>
+        <a class="btn btn-ghost btn-small" id="agent-bookings-btn" href="#" target="_blank" rel="noopener">Agent Bookings</a>
       </div>
       <p style="color:var(--ink-soft)">Authorise a provisional booking once you're happy to confirm it, or cancel one that shouldn't go ahead. Click a booking for its full details.</p>
-      <div class="checkbox-row">
+      <div class="view-toggle" role="group" aria-label="Show bookings as">
+        <button type="button" data-bookings-view="all:list" aria-pressed="true">List</button>
+        <button type="button" data-bookings-view="all:calendar" aria-pressed="false">Calendar</button>
+      </div>
+      <div class="calendar-card" id="all-bookings-cal" style="display:none;max-width:760px">
+        <div class="calendar-toolbar">
+          <h3 id="all-bookings-cal-label">Loading…</h3>
+          <div class="calendar-nav">
+            <button id="all-bookings-cal-prev" type="button" aria-label="Previous months">&#8249;</button>
+            <button id="all-bookings-cal-next" type="button" aria-label="Next months">&#8250;</button>
+          </div>
+        </div>
+        <div class="form-error" id="all-bookings-cal-error"></div>
+        <div class="calendar-months" id="all-bookings-cal-months"></div>
+        <div class="calendar-legend">
+          <span><span class="swatch confirmed"></span> Confirmed</span>
+          <span><span class="swatch provisional"></span> Provisional</span>
+        </div>
+        <p style="color:var(--ink-soft);font-size:0.88rem;margin:12px 0 0">Click a booking to edit it.</p>
+      </div>
+      <div class="checkbox-row" id="show-past-row">
         <input type="checkbox" id="show-past-bookings" />
         <label for="show-past-bookings" style="margin:0">Show past bookings</label>
       </div>
@@ -161,7 +206,7 @@
     <!-- Admin: users -->
     <div class="dash-panel" id="panel-users">
       <h2>Users</h2>
-      <p style="color:var(--ink-soft)">Everyone with an account. Blocked people can't log in or use the site until you unblock them.</p>
+      <p style="color:var(--ink-soft)">Everyone with an account. New accounts show as <strong>Pending</strong> until you approve them; blocked people can't log in or use the site until you unblock them.</p>
       <div class="form-error" id="users-error"></div>
       <div class="form-ok" id="users-ok"></div>
       <ul class="booking-list" id="users-list"></ul>
@@ -198,6 +243,18 @@
         <div class="form-error" id="settings-error"></div>
         <div class="form-ok" id="settings-ok"></div>
         <button class="btn btn-primary" id="save-settings-btn">Save</button>
+
+        <h3 style="margin-top:36px">Agent Bookings link</h3>
+        <p style="color:var(--ink-soft)">The Agent Bookings page only opens with this secret link. Send it to whoever needs it; if it goes to the wrong person, make a new one and the old link stops working.</p>
+        <div class="field">
+          <label for="agent-link">Link</label>
+          <input id="agent-link" type="text" readonly />
+        </div>
+        <div class="form-ok" id="agent-link-ok"></div>
+        <div class="action-row">
+          <button class="btn btn-ghost" id="copy-agent-link-btn" type="button">Copy link</button>
+          <button class="btn btn-ghost" id="new-agent-link-btn" type="button">Make a new link</button>
+        </div>
       </div>
     </div>
   </div>
@@ -554,7 +611,103 @@
     reloadFn();
   }
 
+  /* -------- Bookings: list or calendar -------- */
+
+  // Which view each bookings tab is showing ('list' or 'calendar') —
+  // remembered in this browser so it opens the way the person left it.
+  const bookingsView = { my: 'list', all: 'list' };
+  try {
+    const saved = JSON.parse(localStorage.getItem('bookingsView') || '{}');
+    ['my', 'all'].forEach((k) => { if (saved[k] === 'calendar') bookingsView[k] = 'calendar'; });
+  } catch (e) { /* storage unavailable — default to lists */ }
+
+  const bookingsCal = {
+    my: { year: new Date().getFullYear(), month: new Date().getMonth(), ranges: [], editable: new Map() },
+    all: { year: new Date().getFullYear(), month: new Date().getMonth(), ranges: [], editable: new Map() },
+  };
+
+  function reloadBookingsTab(key) {
+    if (key === 'my') loadMyBookings(); else loadAllBookings();
+  }
+
+  function applyBookingsView(key) {
+    const isCal = bookingsView[key] === 'calendar';
+    document.querySelectorAll(`[data-bookings-view^="${key}:"]`).forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.bookingsView === `${key}:${bookingsView[key]}`));
+    });
+    document.getElementById(`${key}-bookings-cal`).style.display = isCal ? 'block' : 'none';
+    document.getElementById(`${key}-bookings-list`).style.display = isCal ? 'none' : '';
+    if (key === 'all') document.getElementById('show-past-row').style.display = isCal ? 'none' : '';
+    const banner = key === 'all' && document.getElementById('all-bookings-sync-error');
+    if (banner) banner.style.display = isCal ? 'none' : '';
+  }
+
+  // Every booking in the flat's calendar, with the person's name and whether
+  // it's confirmed or provisional. Clicking one opens it for editing if it's
+  // theirs (or they're an admin); anything else just shows its details.
+  async function loadBookingsCalendar(key) {
+    const st = bookingsCal[key];
+    const errEl = document.getElementById(`${key}-bookings-cal-error`);
+    errEl.classList.remove('show');
+    const from = new Date(); from.setFullYear(from.getFullYear() - 1); from.setDate(1);
+    const to = new Date(); to.setMonth(to.getMonth() + 18);
+    try {
+      const isAdmin = currentUser && currentUser.role === 'admin';
+      const [avail, list] = await Promise.all([
+        Api.availability(from.toISOString().slice(0, 10), to.toISOString().slice(0, 10)),
+        isAdmin ? Api.allBookings() : Api.myBookings(),
+      ]);
+      st.ranges = avail.ranges || [];
+      st.editable = new Map((list.bookings || []).filter(isEditable).map((b) => [String(b.id), b]));
+    } catch (e) {
+      st.ranges = [];
+      errEl.textContent = `Couldn't load the calendar: ${e.message}`;
+      errEl.classList.add('show');
+    }
+    drawBookingsCalendar(key);
+  }
+
+  function drawBookingsCalendar(key) {
+    const st = bookingsCal[key];
+    renderCalendarMonths(document.getElementById(`${key}-bookings-cal-months`), st.year, st.month, 2, st.ranges, {
+      showPastBookings: true,
+      onBookingClick: (id, description) => {
+        const booking = id && st.editable.get(String(id));
+        if (booking) openEditModal(booking, () => reloadBookingsTab(key));
+        else showBookingPopup(description);
+      },
+    });
+    const first = new Date(st.year, st.month, 1);
+    const second = new Date(st.year, st.month + 1, 1);
+    document.getElementById(`${key}-bookings-cal-label`).textContent =
+      `${first.toLocaleString('en-GB', { month: 'long', year: 'numeric' })} – ${second.toLocaleString('en-GB', { month: 'long', year: 'numeric' })}`;
+  }
+
+  ['my', 'all'].forEach((key) => {
+    document.querySelectorAll(`[data-bookings-view^="${key}:"]`).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        bookingsView[key] = btn.dataset.bookingsView.split(':')[1];
+        try { localStorage.setItem('bookingsView', JSON.stringify(bookingsView)); } catch (e) { /* ignore */ }
+        applyBookingsView(key);
+        if (bookingsView[key] === 'calendar') loadBookingsCalendar(key);
+      });
+    });
+    document.getElementById(`${key}-bookings-cal-prev`).addEventListener('click', () => {
+      const st = bookingsCal[key];
+      st.month -= 1; if (st.month < 0) { st.month = 11; st.year -= 1; }
+      drawBookingsCalendar(key);
+    });
+    document.getElementById(`${key}-bookings-cal-next`).addEventListener('click', () => {
+      const st = bookingsCal[key];
+      st.month += 1; if (st.month > 11) { st.month = 0; st.year += 1; }
+      drawBookingsCalendar(key);
+    });
+    applyBookingsView(key);
+  });
+
   async function loadMyBookings() {
+    applyBookingsView('my');
+    if (bookingsView.my === 'calendar') loadBookingsCalendar('my');
     const list = document.getElementById('my-bookings-list');
     list.innerHTML = '<li class="empty-state">Loading…</li>';
     let bookings;
@@ -604,6 +757,8 @@
   }
 
   async function loadAllBookings() {
+    applyBookingsView('all');
+    if (bookingsView.all === 'calendar') loadBookingsCalendar('all');
     const list = document.getElementById('all-bookings-list');
     const showPast = document.getElementById('show-past-bookings').checked;
     list.innerHTML = '<li class="empty-state">Loading…</li>';
@@ -618,6 +773,7 @@
     if (existingBanner) existingBanner.remove();
     if (calendar_sync_error) {
       list.insertAdjacentHTML('beforebegin', `<div id="all-bookings-sync-error" class="form-error show" style="margin-bottom:12px">Couldn't sync the linked Google Calendar: ${escapeHtml(calendar_sync_error)}</div>`);
+      applyBookingsView('all');
     }
     const cutoff = startOfCurrentMonth();
     // Unticked (the default): only this month's bookings onward — past
@@ -684,7 +840,40 @@
     document.getElementById('daily-rate').value = (settings && settings.daily_rate != null) ? settings.daily_rate : '';
     document.getElementById('cleaning-1-room').value = (settings && settings.cleaning_fee_1_room != null) ? settings.cleaning_fee_1_room : '';
     document.getElementById('cleaning-2-rooms').value = (settings && settings.cleaning_fee_2_rooms != null) ? settings.cleaning_fee_2_rooms : '';
+    showAgentLink(settings && settings.agent_bookings_url);
   }
+
+  function showAgentLink(url) {
+    if (!url) return;
+    document.getElementById('agent-link').value = url;
+    document.getElementById('agent-bookings-btn').href = url;
+  }
+
+  document.getElementById('copy-agent-link-btn').addEventListener('click', async () => {
+    const input = document.getElementById('agent-link');
+    const okEl = document.getElementById('agent-link-ok');
+    try {
+      await navigator.clipboard.writeText(input.value);
+      okEl.textContent = 'Link copied.';
+    } catch (e) {
+      input.select();
+      okEl.textContent = 'Select the link above and copy it.';
+    }
+    okEl.classList.add('show');
+  });
+
+  document.getElementById('new-agent-link-btn').addEventListener('click', async () => {
+    const okEl = document.getElementById('agent-link-ok');
+    if (!confirm('Make a new Agent Bookings link? The current link will stop working, so you will need to send the new one to whoever uses it.')) return;
+    try {
+      const { agent_bookings_url } = await Api.adminNewAgentLink();
+      showAgentLink(agent_bookings_url);
+      okEl.textContent = 'New link made — the old one no longer works.';
+      okEl.classList.add('show');
+    } catch (e) {
+      alert(e.message);
+    }
+  });
 
   document.getElementById('save-settings-btn').addEventListener('click', async () => {
     const errEl = document.getElementById('settings-error');
@@ -1264,10 +1453,10 @@
           </div>
           <div class="booking-actions">
             ${u.role === 'admin' ? '<span class="status-pill confirmed">admin</span>' : ''}
-            ${u.blocked ? '<span class="status-pill cancelled">blocked</span>' : ''}
+            ${u.pending_approval ? '<span class="status-pill pending">pending</span>' : (u.blocked ? '<span class="status-pill cancelled">blocked</span>' : '')}
             <button class="btn btn-ghost btn-small user-edit-btn" data-id="${u.id}">Edit</button>
             <button class="btn btn-ghost btn-small user-reset-btn" data-id="${u.id}">Reset link</button>
-            ${u.id === me ? '' : `<button class="btn btn-ghost btn-small user-block-btn" data-id="${u.id}">${u.blocked ? 'Unblock' : 'Block'}</button>
+            ${u.id === me ? '' : `<button class="btn ${u.pending_approval ? 'btn-primary' : 'btn-ghost'} btn-small user-block-btn" data-id="${u.id}">${u.pending_approval ? 'Approve' : (u.blocked ? 'Unblock' : 'Block')}</button>
             <button class="btn btn-ghost btn-small user-delete-btn" data-id="${u.id}">Delete</button>`}
           </div>
         </li>
@@ -1281,9 +1470,23 @@
       }));
       list.querySelectorAll('.user-block-btn').forEach((b) => b.addEventListener('click', () => toggleBlockUser(Number(b.dataset.id))));
       list.querySelectorAll('.user-delete-btn').forEach((b) => b.addEventListener('click', () => deleteUser(Number(b.dataset.id))));
+      highlightRequestedUser();
     } catch (e) {
       errEl.textContent = e.message; errEl.classList.add('show');
     }
+  }
+
+  // The new-account email links to ?tab=users&user=<id> — pick that person
+  // out (once) so Ali can approve them straight away.
+  let requestedUserHandled = false;
+  function highlightRequestedUser() {
+    if (requestedUserHandled) return;
+    requestedUserHandled = true;
+    const id = new URLSearchParams(window.location.search).get('user');
+    const row = id && document.querySelector(`#users-list .booking-row[data-id="${CSS.escape(id)}"]`);
+    if (!row) return;
+    row.classList.add('highlight');
+    row.scrollIntoView({ block: 'center' });
   }
 
   function showUsersMessage(text, isError) {
@@ -1301,7 +1504,9 @@
     if (blocking && !confirm(`Block ${u.name}? They won't be able to log in or use the site until you unblock them.`)) return;
     try {
       await Api.adminSetUserBlocked(id, blocking);
-      showUsersMessage(`${u.name} has been ${blocking ? 'blocked' : 'unblocked'}.`, false);
+      showUsersMessage(u.pending_approval
+        ? `${u.name} has been approved and emailed to say they can log in.`
+        : `${u.name} has been ${blocking ? 'blocked' : 'unblocked'}.`, false);
       loadUsers();
     } catch (e) { showUsersMessage(e.message, true); }
   }
@@ -1380,7 +1585,11 @@
     const user = await initSession();
     if (!user) {
       document.getElementById('signed-out-notice').style.display = 'block';
-      document.getElementById('signed-out-login-btn').addEventListener('click', () => openAuthModal('login'));
+      document.getElementById('signed-out-login-btn').addEventListener('click', () => {
+        // Come back to this exact page (e.g. the Users tab from an approval email).
+        postAuthRedirect = window.location.pathname + window.location.search;
+        openAuthModal('login');
+      });
       return;
     }
     document.getElementById('dash-app').style.display = 'block';
@@ -1389,6 +1598,10 @@
       ? 'Manage bookings and the linked calendar for Mirador de Calahonda.'
       : 'Request a stay and track your bookings.';
     buildTabs(user.role);
+    // The Agent Bookings button needs the secret link from settings.
+    if (user.role === 'admin') {
+      Api.adminSettings().then(({ settings }) => showAgentLink(settings && settings.agent_bookings_url)).catch(() => {});
+    }
     document.getElementById('show-past-bookings').addEventListener('change', loadAllBookings);
     applyDatesFromQuery();
     await loadCharges();

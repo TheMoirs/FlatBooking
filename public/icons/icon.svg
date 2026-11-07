@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Casa tile: a white tile with a navy M inside a mosaic border, after the Casa Moir sign -->
+  <rect x="0" y="0" width="64" height="64" rx="10" fill="#2B2A27"/>
+  <rect x="4" y="4" width="8" height="6" fill="#E3A23C"/><rect x="12" y="4" width="8" height="6" fill="#1F5266"/><rect x="20" y="4" width="8" height="6" fill="#C1592F"/><rect x="28" y="4" width="8" height="6" fill="#6C8C6A"/><rect x="36" y="4" width="8" height="6" fill="#E3A23C"/><rect x="44" y="4" width="8" height="6" fill="#1F5266"/><rect x="52" y="4" width="8" height="6" fill="#C1592F"/>
+  <rect x="4" y="54" width="8" height="6" fill="#C1592F"/><rect x="12" y="54" width="8" height="6" fill="#1F5266"/><rect x="20" y="54" width="8" height="6" fill="#E3A23C"/><rect x="28" y="54" width="8" height="6" fill="#6C8C6A"/><rect x="36" y="54" width="8" height="6" fill="#C1592F"/><rect x="44" y="54" width="8" height="6" fill="#1F5266"/><rect x="52" y="54" width="8" height="6" fill="#E3A23C"/>
+  <rect x="4" y="10" width="6" height="8" fill="#6C8C6A"/><rect x="4" y="18" width="6" height="8" fill="#C1592F"/><rect x="4" y="26" width="6" height="12" fill="#1F5266"/><rect x="4" y="38" width="6" height="8" fill="#E3A23C"/><rect x="4" y="46" width="6" height="8" fill="#6C8C6A"/>
+  <rect x="54" y="10" width="6" height="8" fill="#6C8C6A"/><rect x="54" y="18" width="6" height="8" fill="#E3A23C"/><rect x="54" y="26" width="6" height="12" fill="#1F5266"/><rect x="54" y="38" width="6" height="8" fill="#C1592F"/><rect x="54" y="46" width="6" height="8" fill="#6C8C6A"/>
+  <rect x="11" y="11" width="42" height="42" rx="2" fill="#FBF8F3"/>
+  <path d="M18 43V41h2V23h-2V21h7l7 14 7-14h7v2h-2v18h2v2h-9v-2h2V28l-6 12h-2l-6-12v13h2v2z" fill="#1E2856"/>
+</svg>
