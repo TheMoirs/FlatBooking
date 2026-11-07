@@ -157,7 +157,7 @@
         <button type="button" data-bookings-view="my:list" aria-pressed="true">List</button>
         <button type="button" data-bookings-view="my:calendar" aria-pressed="false">Calendar</button>
       </div>
-      <div class="checkbox-row">
+      <div class="checkbox-row" id="show-past-my-row">
         <input type="checkbox" id="show-past-my-bookings" />
         <label for="show-past-my-bookings" style="margin:0">Show past bookings</label>
       </div>
@@ -191,7 +191,7 @@
         <button type="button" data-bookings-view="all:list" aria-pressed="true">List</button>
         <button type="button" data-bookings-view="all:calendar" aria-pressed="false">Calendar</button>
       </div>
-      <div class="checkbox-row">
+      <div class="checkbox-row" id="show-past-all-row">
         <input type="checkbox" id="show-past-bookings" />
         <label for="show-past-bookings" style="margin:0">Show past bookings</label>
       </div>
@@ -666,6 +666,9 @@
     });
     document.getElementById(`${key}-bookings-cal`).style.display = isCal ? 'block' : 'none';
     document.getElementById(`${key}-bookings-list`).style.display = isCal ? 'none' : '';
+    // The calendar always shows past bookings (faded) when you go back a few
+    // months, so the tick box is only for the list.
+    document.getElementById(`show-past-${key}-row`).style.display = isCal ? 'none' : '';
     const banner = key === 'all' && document.getElementById('all-bookings-sync-error');
     if (banner) banner.style.display = isCal ? 'none' : '';
   }
@@ -713,9 +716,13 @@
   function drawBookingsCalendar(key) {
     const st = bookingsCal[key];
     renderCalendarMonths(document.getElementById(`${key}-bookings-cal-months`), st.year, st.month, 2, st.ranges, {
-      showPastBookings: showPastChecked(key),
+      showPastBookings: true,
       onBookingClick: (id, description) => {
-        const booking = id && st.editable.get(String(id));
+        // Past stays just show their summary; upcoming ones open for editing
+        // if they're yours (or you're an admin).
+        const range = id && st.ranges.find((r) => String(r.id) === String(id));
+        const isPast = range && range.end < todayISO();
+        const booking = !isPast && id && st.editable.get(String(id));
         if (booking) openEditModal(booking, () => reloadBookingsTab(key));
         else showBookingPopup(description);
       },

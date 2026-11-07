@@ -43,7 +43,7 @@
   </div>
 
   <div class="form-error" id="agent-error"></div>
-  <div class="checkbox-row">
+  <div class="checkbox-row" id="show-past-row">
     <input type="checkbox" id="show-past-bookings" />
     <label for="show-past-bookings" style="margin:0">Show past bookings</label>
   </div>
@@ -156,6 +156,8 @@
     document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
     document.getElementById('agent-cal').style.display = view === 'calendar' ? 'block' : 'none';
     document.getElementById('agent-bookings-list').style.display = view === 'calendar' ? 'none' : '';
+    // Past stays always show (faded) in the calendar; the box is for the list.
+    document.getElementById('show-past-row').style.display = view === 'calendar' ? 'none' : '';
   }
 
   async function loadAgentBookings() {
@@ -238,7 +240,7 @@
       if (next) { cal.year = Number(next.slice(0, 4)); cal.month = Number(next.slice(5, 7)) - 1; }
     }
     renderCalendarMonths(document.getElementById('agent-cal-months'), cal.year, cal.month, 2, ranges, {
-      showPastBookings: document.getElementById('show-past-bookings').checked,
+      showPastBookings: true,
     });
     const first = new Date(cal.year, cal.month, 1);
     const second = new Date(cal.year, cal.month + 1, 1);
@@ -259,7 +261,7 @@
     cal.month += 1; if (cal.month > 11) { cal.month = 0; cal.year += 1; }
     drawCalendar();
   });
-  document.getElementById('show-past-bookings').addEventListener('change', () => { drawList(); drawCalendar(); });
+  document.getElementById('show-past-bookings').addEventListener('change', drawList);
 
   /* -------- Menu: Create shortcut -------- */
 
