@@ -690,6 +690,14 @@ section.tight { padding: 48px 0; }
 /* ---------------- Dashboard / admin ---------------- */
 
 .dash-header { background: var(--whitewash-dim); border-bottom: 1px solid var(--line); padding: 30px 0; }
+/* Phones: a slimmer header band so bookings start higher up the screen. */
+@media (max-width: 560px) {
+  .dash-header { padding: 14px 0 0; }
+  .dash-header h1 { font-size: 1.7rem; margin: 0; }
+  .dash-header #dash-sub { display: none; }
+  .dash-header .dash-tabs { margin-top: 6px; border-bottom: 0; }
+  body .dash-panel { padding-top: 22px; }
+}
 .dash-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 20px; border-bottom: 1px solid var(--line); }
 .dash-tab {
   padding: 10px 18px;
