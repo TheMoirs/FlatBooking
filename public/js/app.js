@@ -143,23 +143,11 @@ function renderNav() {
   if (currentUser) {
     slot.innerHTML = `
       <span style="font-size:0.9rem;color:var(--ink-soft)">Hi, ${escapeHtml(currentUser.name.split(' ')[0])}</span>
-      <a class="btn btn-ghost btn-small" id="nav-bookings-link" href="${currentUser.role === 'admin' ? '/dashboard.html' : '/dashboard.html?tab=new-booking'}">${currentUser.role === 'admin' ? 'Admin' : 'Bookings'}</a>
+      <a class="btn btn-ghost btn-small" id="nav-bookings-link" href="/dashboard.html">${currentUser.role === 'admin' ? 'Admin' : 'Bookings'}</a>
       <button class="btn btn-secondary btn-small" id="logout-btn">Log out</button>
     `;
-    // "Bookings" goes to the person's existing bookings if they have any,
-    // otherwise straight to a new booking.
-    if (currentUser.role !== 'admin') {
-      const link = document.getElementById('nav-bookings-link');
-      const hasBookings = Api.myBookings()
-        .then((d) => Array.isArray(d.bookings) && d.bookings.length > 0)
-        .catch(() => false);
-      hasBookings.then((has) => { link.href = `/dashboard.html?tab=${has ? 'my-bookings' : 'new-booking'}`; });
-      link.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const has = await hasBookings;
-        window.location.href = `/dashboard.html?tab=${has ? 'my-bookings' : 'new-booking'}`;
-      });
-    }
+    // The dashboard picks the right tab itself: All bookings for admins;
+    // My bookings for anyone with an upcoming stay, otherwise New booking.
     document.getElementById('logout-btn').addEventListener('click', async () => {
       await Api.logout();
       currentUser = null;

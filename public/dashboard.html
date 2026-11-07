@@ -132,7 +132,7 @@
         </div>
 
         <div class="field">
-          <label for="booking-notes">Anything we should know? (optional)</label>
+          <label for="booking-notes">Any other requirements? E.G. Arriving very late &amp; need milk, bread &amp; butter (charged extra).</label>
           <textarea id="booking-notes" rows="3"></textarea>
         </div>
         <div class="action-row fixed">
@@ -315,6 +315,10 @@
   <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
     <button class="close-x" id="edit-modal-close" aria-label="Close">&times;</button>
     <h3 id="edit-modal-title">Edit booking</h3>
+    <div class="action-row" id="edit-admin-actions" style="display:none;margin:4px 0 16px">
+      <button class="btn btn-primary" type="button" id="edit-authorise-btn">Authorise</button>
+      <button class="btn btn-ghost" type="button" id="edit-delete-btn">Delete</button>
+    </div>
     <p class="sub">Pick a check-in date, then a check-out date, to change the dates — or leave them as they are.</p>
 
     <div class="form-error" id="edit-error"></div>
@@ -396,7 +400,7 @@
       </div>
     </div>
     <div class="field">
-      <label for="edit-notes">Anything we should know? (optional)</label>
+      <label for="edit-notes">Any other requirements? E.G. Arriving very late &amp; need milk, bread &amp; butter (charged extra).</label>
       <textarea id="edit-notes" rows="3"></textarea>
     </div>
 
@@ -1318,6 +1322,16 @@
     editCal.bookingId = booking.id;
     editStatusLabel = booking.status === 'confirmed' ? 'Confirmed' : 'Provisional';
     editCal.reloadFn = reloadFn;
+    editCal.status = booking.status;
+    // Admins can authorise (or un-authorise) and delete straight from here.
+    const isAdmin = currentUser && currentUser.role === 'admin';
+    document.getElementById('edit-admin-actions').style.display = isAdmin ? '' : 'none';
+    if (isAdmin) {
+      const authBtn = document.getElementById('edit-authorise-btn');
+      const confirmed = booking.status === 'confirmed';
+      authBtn.textContent = confirmed ? 'Un-authorise' : 'Authorise';
+      authBtn.className = `btn ${confirmed ? 'btn-ghost' : 'btn-primary'}`;
+    }
     editCal.start = booking.start_date;
     editCal.end = booking.end_date;
     editCal.origStart = booking.start_date;
@@ -1352,6 +1366,29 @@
   function closeEditModal() {
     document.getElementById('edit-modal').classList.remove('open');
   }
+
+  document.getElementById('edit-authorise-btn').addEventListener('click', async () => {
+    const errEl = document.getElementById('edit-error');
+    errEl.classList.remove('show');
+    try {
+      if (editCal.status === 'confirmed') await Api.unauthoriseBooking(editCal.bookingId);
+      else await Api.authoriseBooking(editCal.bookingId);
+      closeEditModal();
+      if (editCal.reloadFn) editCal.reloadFn();
+    } catch (e) {
+      errEl.textContent = e.message; errEl.classList.add('show');
+    }
+  });
+  document.getElementById('edit-delete-btn').addEventListener('click', async () => {
+    const errEl = document.getElementById('edit-error');
+    errEl.classList.remove('show');
+    const reload = editCal.reloadFn;
+    try {
+      await confirmAndCancel(editCal.bookingId, () => { closeEditModal(); if (reload) reload(); }, 'Delete');
+    } catch (e) {
+      errEl.textContent = e.message; errEl.classList.add('show');
+    }
+  });
 
   function drawEditCalendar() {
     const container = document.getElementById('edit-cal-months');
@@ -1664,10 +1701,27 @@
     applyDatesFromQuery();
     await loadCharges();
     await loadBookingCalendar();
-    const requestedTab = new URLSearchParams(window.location.search).get('tab');
+    const params = new URLSearchParams(window.location.search);
+    const requestedTab = params.get('tab');
     const availableTabs = (TABS[user.role] || TABS.user).map((t) => t.id);
-    showTab(availableTabs.includes(requestedTab) ? requestedTab : 'new-booking');
+    showTab(availableTabs.includes(requestedTab) ? requestedTab : await defaultTab(user, params));
   })();
+
+  // Where the dashboard opens when no tab is named: picked dates go straight
+  // to New booking; admins get All bookings; everyone else gets My bookings
+  // if they have a stay coming up, otherwise New booking.
+  async function defaultTab(user, params) {
+    if (params.get('dates')) return 'new-booking';
+    if (user.role === 'admin') return 'all-bookings';
+    try {
+      const { bookings } = await Api.myBookings();
+      const today = todayISO();
+      const upcoming = (bookings || []).some((b) => b.status !== 'cancelled' && b.end_date >= today);
+      return upcoming ? 'my-bookings' : 'new-booking';
+    } catch (e) {
+      return 'new-booking';
+    }
+  }
 </script>
 </body>
 </html>

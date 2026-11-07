@@ -175,3 +175,33 @@ function showBookingPopup(text) {
 function hideBookingPopup() {
   if (bookingPopupEl) bookingPopupEl.classList.remove('show');
 }
+
+// Swipe left / right on any calendar card to go forward / back a month —
+// the same as tapping its › and ‹ arrows. Only a clear sideways swipe
+// counts, so scrolling the page up and down and tapping a day still work.
+function enableCalendarSwipe(card) {
+  if (!card || card.dataset.swipeBound) return;
+  const prev = card.querySelector('.calendar-nav button[aria-label^="Previous"]');
+  const next = card.querySelector('.calendar-nav button[aria-label^="Next"]');
+  if (!prev || !next) return;
+  card.dataset.swipeBound = '1';
+  let startX = null, startY = null;
+  card.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) { startX = null; return; }
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+  card.addEventListener('touchend', (e) => {
+    if (startX === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    startX = null;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    (dx < 0 ? next : prev).click();
+  }, { passive: true });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.calendar-card').forEach(enableCalendarSwipe);
+});
