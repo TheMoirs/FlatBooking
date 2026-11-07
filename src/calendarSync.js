@@ -51,7 +51,7 @@ async function getCostsLine({ startDate, endDate, middleBedroomConfig, firstBedr
   return `${base} plus Cleaning: ${fmtMoney(cleaning)} - Total: ${fmtMoney(nightly + cleaning)}`;
 }
 
-function buildGoogleCalendarDescription({ guestName, status, arrivalTime, departureTime, startDate, endDate, masterBedroomConfig, middleBedroomConfig, firstBedroomConfig, sofaBedRequired, notes, costsLine }) {
+function buildGoogleCalendarDescription({ guestName, status, arrivalTime, departureTime, startDate, endDate, masterBedroomConfig, middleBedroomConfig, firstBedroomConfig, sofaBedRequired, babyCotRequired, notes, costsLine }) {
   const lines = [
     `Guest: ${guestName || 'Guest'}`,
     `Status: ${status || 'provisional'}`,
@@ -65,6 +65,7 @@ function buildGoogleCalendarDescription({ guestName, status, arrivalTime, depart
   if (middleBedroomConfig) lines.push(`Middle bedroom configuration: ${middleBedroomConfig}`);
   if (firstBedroomConfig) lines.push(`1st bedroom configuration: ${firstBedroomConfig}`);
   if (sofaBedRequired) lines.push(`Sofa bed required: ${sofaBedRequired}`);
+  if (babyCotRequired) lines.push(`Baby cot required: ${babyCotRequired}`);
   if (notes) lines.push(`Notes: ${notes}`);
   return lines.join('\n');
 }
@@ -169,6 +170,7 @@ async function upsertGoogleCalendarEvent({
   middleBedroomConfig,
   firstBedroomConfig,
   sofaBedRequired,
+  babyCotRequired,
   notes,
 }) {
   const calendarClient = await getGoogleCalendarClient();
@@ -187,6 +189,7 @@ async function upsertGoogleCalendarEvent({
     middleBedroomConfig,
     firstBedroomConfig,
     sofaBedRequired,
+    babyCotRequired,
     notes,
     costsLine,
   });

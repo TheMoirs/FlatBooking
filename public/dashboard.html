@@ -123,6 +123,13 @@
             <label><input type="radio" name="sofa-bed-required" value="No" checked /> No</label>
           </div>
         </div>
+        <div class="field">
+          <label>Baby cot required?</label>
+          <div class="radio-row">
+            <label><input type="radio" name="baby-cot-required" value="Yes" /> Yes</label>
+            <label><input type="radio" name="baby-cot-required" value="No" checked /> No</label>
+          </div>
+        </div>
 
         <div class="field">
           <label for="booking-notes">Anything we should know? (optional)</label>
@@ -382,6 +389,13 @@
       </div>
     </div>
     <div class="field">
+      <label>Baby cot required?</label>
+      <div class="radio-row">
+        <label><input type="radio" name="edit-baby-cot-required" value="Yes" /> Yes</label>
+        <label><input type="radio" name="edit-baby-cot-required" value="No" /> No</label>
+      </div>
+    </div>
+    <div class="field">
       <label for="edit-notes">Anything we should know? (optional)</label>
       <textarea id="edit-notes" rows="3"></textarea>
     </div>
@@ -549,6 +563,7 @@
     if (b.middle_bedroom_config) parts.push(`Middle Bedroom: ${b.middle_bedroom_config}`);
     if (b.first_bedroom_config) parts.push(`1st Bedroom: ${b.first_bedroom_config}`);
     if (b.sofa_bed_required) parts.push(`Sofa bed: ${b.sofa_bed_required}`);
+    if (b.baby_cot_required) parts.push(`Baby cot: ${b.baby_cot_required}`);
     return parts.map((p) => escapeHtml(p)).join('<br>');
   }
   // bedroomConfig is optional — {master, middle, first} — and only needed
@@ -1021,7 +1036,7 @@
     if (bookingCal.anchorMonth > 11) { bookingCal.anchorMonth = 0; bookingCal.anchorYear += 1; }
     drawBookingCalendar();
   });
-  // Clears the whole form, not just the dates (sofa bed back to its default).
+  // Clears the whole form, not just the dates (sofa bed and cot back to their default).
   document.getElementById('reset-selection-btn').addEventListener('click', () => {
     document.getElementById('booking-error').classList.remove('show');
     document.getElementById('booking-ok').classList.remove('show');
@@ -1047,6 +1062,7 @@
       middle: radioValue('middle-bedroom-config'),
       first: radioValue('first-bedroom-config'),
       sofa: radioValue('sofa-bed-required'),
+      cot: radioValue('baby-cot-required'),
       notes: document.getElementById('booking-notes').value.trim(),
     };
     const checks = [
@@ -1058,6 +1074,7 @@
       ['Middle bedroom configuration', v.middle, document.querySelector('input[name="middle-bedroom-config"]')],
       ['1st bedroom configuration', v.first, document.querySelector('input[name="first-bedroom-config"]')],
       ['Sofa bed required?', v.sofa, document.querySelector('input[name="sofa-bed-required"]')],
+      ['Baby cot required?', v.cot, document.querySelector('input[name="baby-cot-required"]')],
     ];
     document.querySelectorAll('#panel-new-booking .field.missing').forEach((el) => el.classList.remove('missing'));
     const missing = [];
@@ -1098,6 +1115,7 @@
     if (v.middle) lines.push(`Middle bedroom: ${v.middle}`);
     if (v.first) lines.push(`1st bedroom: ${v.first}`);
     if (v.sofa) lines.push(`Sofa bed required: ${v.sofa}`);
+    if (v.cot) lines.push(`Baby cot required: ${v.cot}`);
     if (v.notes) lines.push(`Notes: ${v.notes}`);
     return lines.join('\n');
   }
@@ -1112,6 +1130,7 @@
       .forEach((n) => document.querySelectorAll(`input[name="${n}"]`).forEach((el) => { el.checked = false; }));
     // Sofa bed goes back to its default of No rather than blank.
     setRadioValue('sofa-bed-required', 'No');
+    setRadioValue('baby-cot-required', 'No');
     document.getElementById('booking-notes').value = '';
     document.querySelectorAll('#panel-new-booking .field.missing').forEach((el) => el.classList.remove('missing'));
     drawBookingCalendar();
@@ -1247,6 +1266,7 @@
         middle_bedroom_config: v.middle,
         first_bedroom_config: v.first,
         sofa_bed_required: v.sofa,
+        baby_cot_required: v.cot,
         notes: v.notes,
       });
       let msg;
@@ -1309,6 +1329,7 @@
     setRadioValue('edit-middle-bedroom-config', booking.middle_bedroom_config || '');
     setRadioValue('edit-first-bedroom-config', booking.first_bedroom_config || '');
     setRadioValue('edit-sofa-bed-required', booking.sofa_bed_required || '');
+    setRadioValue('edit-baby-cot-required', booking.baby_cot_required || 'No');
 
     // Fresh busy ranges, minus this booking's own dates — otherwise its own
     // stay would show up as "booked" and block editing itself.
@@ -1407,6 +1428,7 @@
         middle: radioValue('edit-middle-bedroom-config'),
         first: radioValue('edit-first-bedroom-config'),
         sofa: radioValue('edit-sofa-bed-required'),
+        cot: radioValue('edit-baby-cot-required'),
         notes: document.getElementById('edit-notes').value.trim(),
       };
       openConfirmModal(v, 'edit', editStatusLabel);
@@ -1433,6 +1455,7 @@
         middle_bedroom_config: v.middle,
         first_bedroom_config: v.first,
         sofa_bed_required: v.sofa,
+        baby_cot_required: v.cot,
         notes: v.notes,
       });
       pendingBooking = null;

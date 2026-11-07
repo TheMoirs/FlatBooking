@@ -819,3 +819,12 @@ section.tight { padding: 48px 0; }
   font: inherit; font-size: 0.85rem; color: inherit; opacity: 0.7;
 }
 .password-toggle:hover, .password-toggle:focus-visible { opacity: 1; text-decoration: underline; }
+
+/* Small ⋮ menu at the top right of the Agent Bookings page */
+.page-menu { position: relative; margin-left: auto; }
+.page-menu-btn { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 999px; background: var(--white); color: var(--ink); cursor: pointer; }
+.page-menu-btn:hover { background: var(--whitewash-dim); }
+.page-menu-list { position: absolute; right: 0; top: calc(100% + 6px); min-width: 190px; background: var(--white); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); padding: 6px; z-index: 50; }
+.page-menu-list[hidden] { display: none; }
+.page-menu-list button { display: block; width: 100%; text-align: left; border: 0; background: none; font: inherit; font-size: 0.95rem; color: var(--ink); padding: 12px 14px; min-height: 44px; border-radius: 6px; cursor: pointer; }
+.page-menu-list button:hover, .page-menu-list button:focus-visible { background: var(--whitewash-dim); }

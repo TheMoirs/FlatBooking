@@ -116,3 +116,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_approval BOOLEAN NOT NULL DEF
 -- Secret key in the Agent Bookings link — only someone with the full link
 -- can see that page. Admins can replace it from Settings.
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS agent_key TEXT;
+
+-- "Baby cot required?" — asked alongside the sofa bed; bookings made before
+-- it existed count as not needing one.
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS baby_cot_required TEXT CHECK (baby_cot_required IN ('Yes', 'No'));
+UPDATE bookings SET baby_cot_required = 'No' WHERE baby_cot_required IS NULL;

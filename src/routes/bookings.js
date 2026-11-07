@@ -60,7 +60,7 @@ async function reconcileDeletedFromGoogle(candidates, external) {
 // POST/PUT /bookings) gets pushed now instead of staying stuck. `rows` need
 // id, start_date, end_date, status, google_event_id, who_going, guest_name
 // (account holder, used only as a fallback), arrival_time, departure_time,
-// the three bedroom configs, sofa_bed_required and notes. Mutates each
+// the three bedroom configs, sofa_bed_required, baby_cot_required and notes. Mutates each
 // pushed row's google_event_id in place so the response this call is
 // already building reflects it, and returns how many were pushed.
 async function ensurePushedToGoogle(rows) {
@@ -80,6 +80,7 @@ async function ensurePushedToGoogle(rows) {
       middleBedroomConfig: b.middle_bedroom_config,
       firstBedroomConfig: b.first_bedroom_config,
       sofaBedRequired: b.sofa_bed_required,
+      babyCotRequired: b.baby_cot_required,
       notes: b.notes,
     });
     if (eventId) {
@@ -136,7 +137,7 @@ router.get('/availability', attachUser, requireAuth, async (req, res) => {
   const internal = await query(
     `SELECT b.id, b.user_id, b.start_date, b.end_date, b.status, b.google_event_id, b.who_going, u.name AS guest_name,
             b.arrival_time, b.departure_time, b.master_bedroom_config,
-            b.middle_bedroom_config, b.first_bedroom_config, b.sofa_bed_required,
+            b.middle_bedroom_config, b.first_bedroom_config, b.sofa_bed_required, b.baby_cot_required,
             b.notes, b.calendar_description
      FROM bookings b
      JOIN users u ON u.id = b.user_id
@@ -162,6 +163,7 @@ router.get('/availability', attachUser, requireAuth, async (req, res) => {
       middleBedroomConfig: b.middle_bedroom_config,
       firstBedroomConfig: b.first_bedroom_config,
       sofaBedRequired: b.sofa_bed_required,
+      babyCotRequired: b.baby_cot_required,
       notes: b.notes,
       calendarDescription: b.calendar_description,
     }),
@@ -241,20 +243,46 @@ router.get('/availability', attachUser, requireAuth, async (req, res) => {
 // Calendar import/clean-up as a side effect), neither of which this page
 // needs or should expose. Only what the page actually shows is returned —
 // dates, who's going, room set-up, notes and status.
-router.get('/agent-bookings', async (req, res) => {
-  // Only for someone with the secret link (see Settings in the dashboard).
+// True when `key` matches the secret in the Agent Bookings link.
+async function isAgentKey(key) {
   const settings = await query('SELECT agent_key FROM settings WHERE id = 1');
   const expected = settings.rows[0] && settings.rows[0].agent_key;
-  const given = Buffer.from(String(req.query.key || ''));
-  const ok = Boolean(expected) && given.length === Buffer.byteLength(expected) &&
+  const given = Buffer.from(String(key || ''));
+  return Boolean(expected) && given.length === Buffer.byteLength(expected) &&
     crypto.timingSafeEqual(given, Buffer.from(expected));
-  if (!ok) {
+}
+
+// GET /api/agent-manifest?key=… — the app settings a phone or browser uses
+// when the agent saves the Agent Bookings page as a shortcut, so it's named
+// "Bookings - Casa Moir" and opens this page with its secret link (not the
+// home page, which the site-wide manifest points at).
+router.get('/agent-manifest', async (req, res) => {
+  if (!(await isAgentKey(req.query.key))) return res.status(404).json({ error: 'Not found.' });
+  res.type('application/manifest+json').json({
+    id: '/agent-bookings.html',
+    name: 'Bookings - Casa Moir',
+    short_name: 'Bookings - Casa Moir',
+    start_url: `/agent-bookings.html?key=${encodeURIComponent(String(req.query.key))}`,
+    scope: '/agent-bookings.html',
+    display: 'standalone',
+    background_color: '#FBF8F3',
+    theme_color: '#1F5266',
+    icons: [
+      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+  });
+});
+
+router.get('/agent-bookings', async (req, res) => {
+  // Only for someone with the secret link (see Settings in the dashboard).
+  if (!(await isAgentKey(req.query.key))) {
     return res.status(403).json({ error: 'This link has expired or is not complete. Please ask Ali or Dawn for the current Agent Bookings link.' });
   }
   const result = await query(
     `SELECT id, start_date, end_date, status, who_going, notes, source,
             arrival_time, departure_time,
-            master_bedroom_config, middle_bedroom_config, first_bedroom_config, sofa_bed_required
+            master_bedroom_config, middle_bedroom_config, first_bedroom_config, sofa_bed_required, baby_cot_required
      FROM bookings
      ORDER BY start_date ASC`
   );
@@ -273,7 +301,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
     const result = await query(
       `SELECT id, start_date, end_date, status, who_going, notes, created_at, source,
               arrival_time, departure_time,
-              master_bedroom_config, middle_bedroom_config, first_bedroom_config, sofa_bed_required,
+              master_bedroom_config, middle_bedroom_config, first_bedroom_config, sofa_bed_required, baby_cot_required,
               calendar_description
        FROM bookings WHERE user_id = $1 AND ($2::boolean OR end_date >= $3)
        ORDER BY start_date ASC`,
@@ -290,7 +318,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
   const dbResult = await query(
     `SELECT b.id, b.start_date, b.end_date, b.status, b.who_going, b.notes, b.created_at, b.source,
             b.arrival_time, b.departure_time,
-            b.master_bedroom_config, b.middle_bedroom_config, b.first_bedroom_config, b.sofa_bed_required,
+            b.master_bedroom_config, b.middle_bedroom_config, b.first_bedroom_config, b.sofa_bed_required, b.baby_cot_required,
             u.name AS guest_name, u.email AS guest_email, u.phone AS guest_phone,
             b.calendar_description, b.google_event_id
      FROM bookings b JOIN users u ON u.id = b.user_id
@@ -421,6 +449,7 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
     middle_bedroom_config,
     first_bedroom_config,
     sofa_bed_required,
+    baby_cot_required,
   } = req.body || {};
   if (!start_date || !end_date) {
     return res.status(400).json({ error: 'Start and end dates are required.' });
@@ -464,6 +493,7 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
     middleBedroomConfig: middle_bedroom_config,
     firstBedroomConfig: first_bedroom_config,
     sofaBedRequired: sofa_bed_required,
+    babyCotRequired: baby_cot_required,
   });
 
   const result = await query(
@@ -471,8 +501,8 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
        user_id, start_date, end_date, status, who_going,
        arrival_time, departure_time,
        master_bedroom_config, middle_bedroom_config, first_bedroom_config, sofa_bed_required,
-       notes, calendar_description
-     ) VALUES ($1, $2, $3, 'provisional', $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       notes, calendar_description, baby_cot_required
+     ) VALUES ($1, $2, $3, 'provisional', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      RETURNING id, start_date, end_date, status, who_going, notes, calendar_description, created_at`,
     [
       req.user.id,
@@ -487,6 +517,7 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
       sofa_bed_required || null,
       notes || null,
       calendarDescription || null,
+      baby_cot_required || null,
     ]
   );
 
@@ -504,6 +535,7 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
     middleBedroomConfig: middle_bedroom_config,
     firstBedroomConfig: first_bedroom_config,
     sofaBedRequired: sofa_bed_required,
+    babyCotRequired: baby_cot_required,
     notes,
   });
 
@@ -550,6 +582,7 @@ router.post('/bookings/:id/authorise', attachUser, requireAdmin, async (req, res
       middleBedroomConfig: row.middle_bedroom_config,
       firstBedroomConfig: row.first_bedroom_config,
       sofaBedRequired: row.sofa_bed_required,
+      babyCotRequired: row.baby_cot_required,
       notes: row.notes,
     });
   }
@@ -589,6 +622,7 @@ router.post('/bookings/:id/unauthorise', attachUser, requireAdmin, async (req, r
       middleBedroomConfig: row.middle_bedroom_config,
       firstBedroomConfig: row.first_bedroom_config,
       sofaBedRequired: row.sofa_bed_required,
+      babyCotRequired: row.baby_cot_required,
       notes: row.notes,
     });
   }
@@ -618,6 +652,7 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
     middle_bedroom_config,
     first_bedroom_config,
     sofa_bed_required,
+    baby_cot_required,
   } = req.body || {};
   if (!start_date || !end_date) {
     return res.status(400).json({ error: 'Start and end dates are required.' });
@@ -661,6 +696,7 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
     middleBedroomConfig: middle_bedroom_config,
     firstBedroomConfig: first_bedroom_config,
     sofaBedRequired: sofa_bed_required,
+    babyCotRequired: baby_cot_required,
   });
 
   const result = await query(
@@ -669,7 +705,7 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
        arrival_time = $5, departure_time = $6,
        master_bedroom_config = $7, middle_bedroom_config = $8, first_bedroom_config = $9,
        sofa_bed_required = $10,
-       notes = $11, calendar_description = $12
+       notes = $11, calendar_description = $12, baby_cot_required = $13
      WHERE id = $1
      RETURNING id, start_date, end_date, status, who_going, notes, calendar_description, google_event_id, created_at`,
     [
@@ -685,6 +721,7 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
       sofa_bed_required || null,
       notes || null,
       calendarDescription || null,
+      baby_cot_required || null,
     ]
   );
 
@@ -701,6 +738,7 @@ router.put('/bookings/:id', attachUser, requireAuth, async (req, res) => {
     middleBedroomConfig: middle_bedroom_config,
     firstBedroomConfig: first_bedroom_config,
     sofaBedRequired: sofa_bed_required,
+    babyCotRequired: baby_cot_required,
     notes,
   });
 
@@ -793,6 +831,7 @@ function buildCalendarDescription({
   middleBedroomConfig,
   firstBedroomConfig,
   sofaBedRequired,
+  babyCotRequired,
   costsLine,
 }) {
   const lines = [];
@@ -810,6 +849,7 @@ function buildCalendarDescription({
   if (middleBedroomConfig) lines.push(`Middle bedroom: ${middleBedroomConfig}`);
   if (firstBedroomConfig) lines.push(`1st bedroom: ${firstBedroomConfig}`);
   if (sofaBedRequired) lines.push(`Sofa bed required: ${sofaBedRequired}`);
+  if (babyCotRequired) lines.push(`Baby cot required: ${babyCotRequired}`);
   if (notes) lines.push(`Notes: ${notes}`);
   return lines.join('\n');
 }
@@ -825,6 +865,7 @@ function formatBookingDescription({
   middleBedroomConfig,
   firstBedroomConfig,
   sofaBedRequired,
+  babyCotRequired,
   notes,
   calendarDescription,
 }) {
@@ -840,6 +881,7 @@ function formatBookingDescription({
   if (middleBedroomConfig) lines.push(`Middle bedroom: ${middleBedroomConfig}`);
   if (firstBedroomConfig) lines.push(`1st bedroom: ${firstBedroomConfig}`);
   if (sofaBedRequired) lines.push(`Sofa bed required: ${sofaBedRequired}`);
+  if (babyCotRequired) lines.push(`Baby cot required: ${babyCotRequired}`);
   if (notes) lines.push(`Notes: ${notes}`);
   return lines.join('\n');
 }

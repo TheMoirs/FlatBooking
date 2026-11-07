@@ -8,8 +8,9 @@
 <link rel="icon" href="/favicon.ico" sizes="32x32" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-<!-- No site manifest here: a shortcut to this page must keep its own link
-     (with the secret key) and its own name, not open the home page. -->
+<!-- Not the site-wide manifest: a shortcut to this page must keep its own
+     link (with the secret key) and its own name. The script below adds
+     /api/agent-manifest?key=… instead, which carries both. -->
 <meta name="apple-mobile-web-app-title" content="Bookings - Casa Moir" />
 <meta name="application-name" content="Bookings - Casa Moir" />
 <meta name="theme-color" content="#1F5266" />
@@ -21,23 +22,67 @@
     <a class="brand" href="/">
       <img class="brand-logo" src="/images/casa-moir-logo.jpg" alt="Casa Moir — Mirador de Calahonda" />
     </a>
+    <div class="page-menu">
+      <button type="button" class="page-menu-btn" id="page-menu-btn" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="4" r="1.8" fill="currentColor"/><circle cx="10" cy="10" r="1.8" fill="currentColor"/><circle cx="10" cy="16" r="1.8" fill="currentColor"/></svg>
+      </button>
+      <div class="page-menu-list" id="page-menu-list" role="menu" hidden>
+        <button type="button" role="menuitem" id="create-shortcut-btn">Create shortcut</button>
+      </div>
+    </div>
   </div>
 </header>
 
 <div class="container" style="padding:48px 24px 80px">
   <h1 style="margin-bottom:8px">Bookings for Casa Moir</h1>
-  <p style="color:var(--ink-soft);margin-bottom:28px">Every booking, with room configurations and stay details.</p>
+  <p style="color:var(--ink-soft);margin-bottom:20px">Every booking, with room configurations and stay details.</p>
+
+  <div class="view-toggle" role="group" aria-label="Show bookings as">
+    <button type="button" data-view="list" aria-pressed="true">List</button>
+    <button type="button" data-view="calendar" aria-pressed="false">Calendar</button>
+  </div>
 
   <div class="form-error" id="agent-error"></div>
   <div class="checkbox-row">
     <input type="checkbox" id="show-past-bookings" />
     <label for="show-past-bookings" style="margin:0">Show past bookings</label>
   </div>
+
+  <div class="calendar-card" id="agent-cal" style="display:none;max-width:760px">
+    <div class="calendar-toolbar">
+      <h3 id="agent-cal-label">Loading…</h3>
+      <div class="calendar-nav">
+        <button id="agent-cal-prev" type="button" aria-label="Previous months">&#8249;</button>
+        <button id="agent-cal-next" type="button" aria-label="Next months">&#8250;</button>
+      </div>
+    </div>
+    <div class="calendar-months" id="agent-cal-months"></div>
+    <div class="calendar-legend">
+      <span><span class="swatch confirmed"></span> Confirmed</span>
+      <span><span class="swatch provisional"></span> Provisional</span>
+    </div>
+    <p style="color:var(--ink-soft);font-size:0.88rem;margin:12px 0 0">Tap a booking to see its details.</p>
+  </div>
+
   <ul class="booking-list" id="agent-bookings-list"></ul>
 </div>
 
+<!-- Shown when the browser can't add the shortcut itself (e.g. iPhones). -->
+<div class="modal-backdrop" id="shortcut-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="shortcut-modal-title">
+    <button class="close-x" id="shortcut-modal-close" aria-label="Close">&times;</button>
+    <h3 id="shortcut-modal-title">Create a shortcut</h3>
+    <p class="sub">Add this page to your home screen so it's one tap away. It will be called <strong>Bookings - Casa Moir</strong>.</p>
+    <ol id="shortcut-steps" style="line-height:1.7;padding-left:20px;margin:0 0 16px"></ol>
+    <button class="btn btn-primary" type="button" id="shortcut-ok-btn" style="width:100%;justify-content:center">OK</button>
+  </div>
+</div>
+
+<script src="/js/calendar.js"></script>
 <script src="/js/app.js"></script>
 <script>
+  const agentKey = new URLSearchParams(location.search).get('key') || '';
+
   function statusPill(status) {
     return `<span class="status-pill ${status}">${status}</span>`;
   }
@@ -74,10 +119,9 @@
     if (datePart && time) return `${datePart} (${time})`;
     return datePart || time || null;
   }
-  // Each item on its own line rather than run together — easier to scan
-  // room-by-room. Returns pre-escaped HTML (join with <br>, not a plain
-  // string), since callers render it directly.
-  function fmtRoomConfig(b) {
+  // Each item on its own line — easier to scan room-by-room. Plain text;
+  // the list escapes and joins with <br>, the calendar pop-up uses it as is.
+  function roomConfigLines(b) {
     const parts = [];
     const arrivalLine = fmtDateTimeLine(b.start_date, b.arrival_time);
     const leaveLine = fmtDateTimeLine(b.end_date, b.departure_time);
@@ -87,31 +131,50 @@
     if (b.middle_bedroom_config) parts.push(`Middle Bedroom: ${b.middle_bedroom_config}`);
     if (b.first_bedroom_config) parts.push(`1st Bedroom: ${b.first_bedroom_config}`);
     if (b.sofa_bed_required) parts.push(`Sofa bed: ${b.sofa_bed_required}`);
-    return parts.map((p) => escapeHtml(p)).join('<br>');
+    if (b.baby_cot_required) parts.push(`Baby cot: ${b.baby_cot_required}`);
+    return parts;
+  }
+  function fmtRoomConfig(b) {
+    return roomConfigLines(b).map((p) => escapeHtml(p)).join('<br>');
   }
 
-  // 'YYYY-MM-DD' for the 1st of the current month, in local time — same
-  // default cutoff and scroll target used on the admin "All bookings" tab.
-  function startOfCurrentMonth() {
+  // A booking is "past" once its leave date is before today — the same rule
+  // as the dashboard's "Show past bookings" boxes.
+  function todayISO() {
     const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+
+  /* -------- List or calendar -------- */
+
+  let view = 'list';
+  try { if (localStorage.getItem('agentBookingsView') === 'calendar') view = 'calendar'; } catch (e) { /* default */ }
+  let allBookings = [];
+  const cal = { year: new Date().getFullYear(), month: new Date().getMonth(), positioned: false };
+
+  function applyView() {
+    document.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
+    document.getElementById('agent-cal').style.display = view === 'calendar' ? 'block' : 'none';
+    document.getElementById('agent-bookings-list').style.display = view === 'calendar' ? 'none' : '';
   }
 
   async function loadAgentBookings() {
     const list = document.getElementById('agent-bookings-list');
     const errEl = document.getElementById('agent-error');
-    const showPast = document.getElementById('show-past-bookings').checked;
     list.innerHTML = '<li class="empty-state">Loading…</li>';
-    let allBookings, calendar_sync_error;
+    let calendar_sync_error;
     try {
       // The secret key from this page's own link has to go with the request.
-      const key = new URLSearchParams(location.search).get('key') || '';
-      const r = await fetch('/api/agent-bookings?key=' + encodeURIComponent(key));
+      const r = await fetch('/api/agent-bookings?key=' + encodeURIComponent(agentKey));
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || 'Unable to load bookings.');
       ({ bookings: allBookings, calendar_sync_error } = data);
     } catch (e) {
+      allBookings = [];
       list.innerHTML = `<li class="empty-state">${escapeHtml(e.message)}</li>`;
+      errEl.textContent = e.message;
+      errEl.classList.toggle('show', view === 'calendar');
+      drawCalendar();
       return;
     }
     if (calendar_sync_error) {
@@ -120,11 +183,17 @@
     } else {
       errEl.classList.remove('show');
     }
-    const cutoff = startOfCurrentMonth();
-    // Same behaviour as the admin "All bookings" tab: unticked (the
-    // default) hides anything before this month; ticked shows the full
-    // history (back to the app's 12-month retention limit), scrolled to
-    // the current month so past bookings are reachable by scrolling up
+    drawList();
+    drawCalendar();
+  }
+
+  function drawList() {
+    const list = document.getElementById('agent-bookings-list');
+    const showPast = document.getElementById('show-past-bookings').checked;
+    const cutoff = todayISO();
+    // Unticked (the default): only bookings that haven't ended yet. Ticked:
+    // the full history (back to the app's 12-month retention limit),
+    // scrolled to today so past bookings are reachable by scrolling up
     // rather than burying what's current.
     const bookings = showPast ? allBookings : allBookings.filter((b) => b.end_date >= cutoff);
     if (!bookings.length) {
@@ -140,22 +209,122 @@
           <div class="booking-meta">${fmtRoomConfig(b) || 'No room configuration recorded'}</div>
           ${b.notes ? `<div class="booking-meta">Notes: ${escapeHtml(b.notes)}</div>` : ''}
         </div>
-        <div style="display:flex;align-items:center;gap:12px">
+        <div class="booking-actions">
           ${statusPill(b.status)}
         </div>
       </li>
     `).join('');
 
-    if (anchorBooking) {
+    if (anchorBooking && view === 'list') {
       const anchorEl = document.getElementById('current-month-anchor');
       if (anchorEl) anchorEl.scrollIntoView({ block: 'start' });
     }
   }
 
+  // Read-only: tapping a stay shows its details in the calendar's pop-up.
+  function drawCalendar() {
+    const today = todayISO();
+    const live = allBookings.filter((b) => b.status !== 'cancelled');
+    const ranges = live.map((b) => {
+      const status = b.status === 'confirmed' ? 'Confirmed' : 'Provisional';
+      const lines = [`${status} - ${b.who_going || 'Guest'}`].concat(roomConfigLines(b));
+      if (b.notes) lines.push(`Notes: ${b.notes}`);
+      return { start: b.start_date, end: b.end_date, status: b.status, description: lines.join('\n') };
+    });
+    if (!cal.positioned && live.length) {
+      // Open on the month of the next booking from today onwards.
+      cal.positioned = true;
+      const next = live.filter((b) => b.end_date >= today).map((b) => (b.start_date > today ? b.start_date : today)).sort()[0];
+      if (next) { cal.year = Number(next.slice(0, 4)); cal.month = Number(next.slice(5, 7)) - 1; }
+    }
+    renderCalendarMonths(document.getElementById('agent-cal-months'), cal.year, cal.month, 2, ranges, {
+      showPastBookings: document.getElementById('show-past-bookings').checked,
+    });
+    const first = new Date(cal.year, cal.month, 1);
+    const second = new Date(cal.year, cal.month + 1, 1);
+    document.getElementById('agent-cal-label').textContent =
+      `${first.toLocaleString('en-GB', { month: 'long', year: 'numeric' })} – ${second.toLocaleString('en-GB', { month: 'long', year: 'numeric' })}`;
+  }
+
+  document.querySelectorAll('[data-view]').forEach((btn) => btn.addEventListener('click', () => {
+    view = btn.dataset.view;
+    try { localStorage.setItem('agentBookingsView', view); } catch (e) { /* ignore */ }
+    applyView();
+  }));
+  document.getElementById('agent-cal-prev').addEventListener('click', () => {
+    cal.month -= 1; if (cal.month < 0) { cal.month = 11; cal.year -= 1; }
+    drawCalendar();
+  });
+  document.getElementById('agent-cal-next').addEventListener('click', () => {
+    cal.month += 1; if (cal.month > 11) { cal.month = 0; cal.year += 1; }
+    drawCalendar();
+  });
+  document.getElementById('show-past-bookings').addEventListener('change', () => { drawList(); drawCalendar(); });
+
+  /* -------- Menu: Create shortcut -------- */
+
+  // App settings carrying this page's name and secret link, so a shortcut
+  // made from it (by the menu below or the browser's own menu) opens here.
+  if (agentKey) {
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = '/api/agent-manifest?key=' + encodeURIComponent(agentKey);
+    document.head.appendChild(link);
+  }
+
+  // Browsers that can add the shortcut themselves (Chrome and Edge on
+  // Android and computers) offer it through this event; others don't.
+  let installPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; });
+  window.addEventListener('appinstalled', () => { installPrompt = null; });
+
+  const menuBtn = document.getElementById('page-menu-btn');
+  const menuList = document.getElementById('page-menu-list');
+  function setMenu(open) {
+    menuList.hidden = !open;
+    menuBtn.setAttribute('aria-expanded', String(open));
+  }
+  menuBtn.addEventListener('click', (e) => { e.stopPropagation(); setMenu(menuList.hidden); });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.page-menu')) setMenu(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false); });
+
+  function shortcutSteps() {
+    const ua = navigator.userAgent;
+    const isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS) return [
+      'Tap the <strong>Share</strong> button (the square with an arrow pointing up) in Safari’s toolbar.',
+      'Scroll down and tap <strong>Add to Home Screen</strong>, then <strong>Add</strong>.',
+    ];
+    if (/Android/.test(ua)) return [
+      'Tap your browser’s menu (usually <strong>⋮</strong> at the top or bottom right).',
+      'Tap <strong>Add to Home screen</strong> (or <strong>Install app</strong>), then <strong>Add</strong>.',
+    ];
+    return [
+      'In Chrome or Edge, open the browser menu (<strong>⋮</strong> or <strong>…</strong> at the top right).',
+      'Choose <strong>Install</strong>, or <strong>Cast, save and share → Create shortcut</strong> in Chrome. In other browsers, bookmark this page.',
+    ];
+  }
+
+  document.getElementById('create-shortcut-btn').addEventListener('click', async () => {
+    setMenu(false);
+    if (installPrompt) {
+      installPrompt.prompt();
+      try { await installPrompt.userChoice; } catch (e) { /* ignore */ }
+      installPrompt = null;
+      return;
+    }
+    document.getElementById('shortcut-steps').innerHTML = shortcutSteps().map((s) => `<li>${s}</li>`).join('');
+    document.getElementById('shortcut-modal').classList.add('open');
+  });
+  const closeShortcut = () => document.getElementById('shortcut-modal').classList.remove('open');
+  document.getElementById('shortcut-modal-close').addEventListener('click', closeShortcut);
+  document.getElementById('shortcut-ok-btn').addEventListener('click', closeShortcut);
+  document.getElementById('shortcut-modal').addEventListener('click', (e) => { if (e.target.id === 'shortcut-modal') closeShortcut(); });
+
   (async function boot() {
     // Open to anyone with the link — no login needed, and no Log in / Book
     // Now buttons in the header (there's no #nav-account slot on this page).
-    document.getElementById('show-past-bookings').addEventListener('change', loadAgentBookings);
+    applyView();
     await loadAgentBookings();
   })();
 </script>
