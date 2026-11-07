@@ -622,8 +622,8 @@
   } catch (e) { /* storage unavailable — default to lists */ }
 
   const bookingsCal = {
-    my: { year: new Date().getFullYear(), month: new Date().getMonth(), ranges: [], editable: new Map() },
-    all: { year: new Date().getFullYear(), month: new Date().getMonth(), ranges: [], editable: new Map() },
+    my: { year: new Date().getFullYear(), month: new Date().getMonth(), ranges: [], editable: new Map(), positioned: false },
+    all: { year: new Date().getFullYear(), month: new Date().getMonth(), ranges: [], editable: new Map(), positioned: false },
   };
 
   function reloadBookingsTab(key) {
@@ -659,6 +659,21 @@
       ]);
       st.ranges = avail.ranges || [];
       st.editable = new Map((list.bookings || []).filter(isEditable).map((b) => [String(b.id), b]));
+      if (!st.positioned) {
+        // Open on the month of the next booking from today onwards — the
+        // person's own for My bookings, anyone's for All bookings. Only the
+        // first time, so reloading after an edit keeps the month they're on.
+        st.positioned = true;
+        const today = new Date().toISOString().slice(0, 10);
+        const next = st.ranges
+          .filter((r) => r.end >= today && (key === 'all' || r.mine))
+          .map((r) => (r.start > today ? r.start : today))
+          .sort()[0];
+        if (next) {
+          st.year = Number(next.slice(0, 4));
+          st.month = Number(next.slice(5, 7)) - 1;
+        }
+      }
     } catch (e) {
       st.ranges = [];
       errEl.textContent = `Couldn't load the calendar: ${e.message}`;

@@ -276,7 +276,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
               master_bedroom_config, middle_bedroom_config, first_bedroom_config, sofa_bed_required,
               calendar_description
        FROM bookings WHERE user_id = $1 AND ($2::boolean OR end_date >= $3)
-       ORDER BY start_date DESC`,
+       ORDER BY start_date ASC`,
       [req.user.id, includeOld, today]
     );
     return res.json({ bookings: result.rows });
