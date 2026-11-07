@@ -1200,8 +1200,13 @@
     const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
     const ics = [
       'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Casa Moir//Booking//EN', 'BEGIN:VEVENT',
-      `UID:casamoir-${v.start}-${v.end}-${Date.now()}@flatbooking`,
+      // One fixed ID per booking, and a number that goes up with each save,
+      // so Apple Calendar and Outlook replace an earlier copy of this stay
+      // instead of adding a second one.
+      `UID:${v.id ? `casamoir-booking-${v.id}` : `casamoir-${v.start}-${v.end}-${Date.now()}`}@flatbooking`,
+      `SEQUENCE:${Math.floor(Date.now() / 1000)}`,
       `DTSTAMP:${stamp}`,
+      `LAST-MODIFIED:${stamp}`,
       `DTSTART;VALUE=DATE:${compactDatePlus(v.start, 0)}`,
       `DTEND;VALUE=DATE:${compactDatePlus(v.end, 1)}`,
       `SUMMARY:${esc(`Spain - ${v.whoGoing}`)}`,
@@ -1240,7 +1245,9 @@
       ? 'Would you like to update your own calendar with the new details?'
       : 'Would you like to save this stay to your own calendar?';
     const note = document.getElementById('confirm-cal-note');
-    note.textContent = 'This adds the updated stay as a new event, so delete the old one from your calendar.';
+    const oldTitle = `Spain - ${v.oldWhoGoing || v.whoGoing}`;
+    note.textContent = `Google Calendar adds the updated stay as a new event, so please delete your old "${oldTitle}" entry. ` +
+      'Apple Calendar and Outlook should replace the old entry for you; if you end up with two, delete the older one.';
     note.style.display = isUpdate ? '' : 'none';
     document.getElementById('cal-google-link').href = googleCalendarUrl(v);
     document.getElementById('cal-ics-btn').onclick = () => downloadIcs(v);
@@ -1293,7 +1300,7 @@
       okEl.textContent = msg;
       okEl.classList.add('show');
 
-      showCalendarOffer(v, msg, false);
+      showCalendarOffer({ ...v, id: result && result.booking && result.booking.id }, msg, false);
       pendingBooking = null;
 
       resetBookingForm();
@@ -1323,6 +1330,7 @@
     editStatusLabel = booking.status === 'confirmed' ? 'Confirmed' : 'Provisional';
     editCal.reloadFn = reloadFn;
     editCal.status = booking.status;
+    editCal.origWhoGoing = booking.who_going || '';
     // Admins can authorise (or un-authorise) and delete straight from here.
     const isAdmin = currentUser && currentUser.role === 'admin';
     document.getElementById('edit-admin-actions').style.display = isAdmin ? '' : 'none';
@@ -1507,7 +1515,7 @@
       closeEditModal();
       if (editCal.reloadFn) editCal.reloadFn();
       loadBookingCalendar();
-      showCalendarOffer(v, 'Booking updated.', true);
+      showCalendarOffer({ ...v, id: editCal.bookingId, oldWhoGoing: editCal.origWhoGoing }, 'Booking updated.', true);
     } catch (e) {
       // Back to the edit form with the problem shown there.
       closeConfirmModal();
