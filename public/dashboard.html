@@ -150,6 +150,10 @@
         <button type="button" data-bookings-view="my:list" aria-pressed="true">List</button>
         <button type="button" data-bookings-view="my:calendar" aria-pressed="false">Calendar</button>
       </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="show-past-my-bookings" />
+        <label for="show-past-my-bookings" style="margin:0">Show past bookings</label>
+      </div>
       <div class="calendar-card" id="my-bookings-cal" style="display:none;max-width:760px">
         <div class="calendar-toolbar">
           <h3 id="my-bookings-cal-label">Loading…</h3>
@@ -180,6 +184,10 @@
         <button type="button" data-bookings-view="all:list" aria-pressed="true">List</button>
         <button type="button" data-bookings-view="all:calendar" aria-pressed="false">Calendar</button>
       </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="show-past-bookings" />
+        <label for="show-past-bookings" style="margin:0">Show past bookings</label>
+      </div>
       <div class="calendar-card" id="all-bookings-cal" style="display:none;max-width:760px">
         <div class="calendar-toolbar">
           <h3 id="all-bookings-cal-label">Loading…</h3>
@@ -195,10 +203,6 @@
           <span><span class="swatch provisional"></span> Provisional</span>
         </div>
         <p style="color:var(--ink-soft);font-size:0.88rem;margin:12px 0 0">Click a booking to edit it.</p>
-      </div>
-      <div class="checkbox-row" id="show-past-row">
-        <input type="checkbox" id="show-past-bookings" />
-        <label for="show-past-bookings" style="margin:0">Show past bookings</label>
       </div>
       <ul class="booking-list" id="all-bookings-list"></ul>
     </div>
@@ -626,6 +630,16 @@
     all: { year: new Date().getFullYear(), month: new Date().getMonth(), ranges: [], editable: new Map(), positioned: false },
   };
 
+  function showPastChecked(key) {
+    return document.getElementById(key === 'my' ? 'show-past-my-bookings' : 'show-past-bookings').checked;
+  }
+
+  // A booking is "past" once its leave date is before today.
+  function todayISO() {
+    const now = new Date();
+    return isoDate(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
   function reloadBookingsTab(key) {
     if (key === 'my') loadMyBookings(); else loadAllBookings();
   }
@@ -637,7 +651,6 @@
     });
     document.getElementById(`${key}-bookings-cal`).style.display = isCal ? 'block' : 'none';
     document.getElementById(`${key}-bookings-list`).style.display = isCal ? 'none' : '';
-    if (key === 'all') document.getElementById('show-past-row').style.display = isCal ? 'none' : '';
     const banner = key === 'all' && document.getElementById('all-bookings-sync-error');
     if (banner) banner.style.display = isCal ? 'none' : '';
   }
@@ -685,7 +698,7 @@
   function drawBookingsCalendar(key) {
     const st = bookingsCal[key];
     renderCalendarMonths(document.getElementById(`${key}-bookings-cal-months`), st.year, st.month, 2, st.ranges, {
-      showPastBookings: true,
+      showPastBookings: showPastChecked(key),
       onBookingClick: (id, description) => {
         const booking = id && st.editable.get(String(id));
         if (booking) openEditModal(booking, () => reloadBookingsTab(key));
@@ -732,7 +745,15 @@
       list.innerHTML = `<li class="empty-state">Couldn't load bookings: ${e.message}</li>`;
       return;
     }
-    if (!bookings.length) { list.innerHTML = '<li class="empty-state">No bookings yet — head to "New booking" to request some dates.</li>'; return; }
+    const today = todayISO();
+    const hadAny = bookings.length > 0;
+    if (!showPastChecked('my')) bookings = bookings.filter((b) => b.end_date >= today);
+    if (!bookings.length) {
+      list.innerHTML = hadAny
+        ? '<li class="empty-state">No current or upcoming bookings — tick "Show past bookings" to see earlier ones.</li>'
+        : '<li class="empty-state">No bookings yet — head to "New booking" to request some dates.</li>';
+      return;
+    }
     list.innerHTML = bookings.map((b) => `
       <li class="booking-row" data-id="${b.id}" style="cursor:pointer">
         <div>
@@ -762,15 +783,6 @@
     });
   }
 
-  // 'YYYY-MM-DD' for the 1st of the current month, in local time — the
-  // default cutoff for "All bookings" (past bookings hidden below this
-  // unless the checkbox is ticked) and the point the list scrolls to when
-  // they are shown.
-  function startOfCurrentMonth() {
-    const now = new Date();
-    return isoDate(now.getFullYear(), now.getMonth(), 1);
-  }
-
   async function loadAllBookings() {
     applyBookingsView('all');
     if (bookingsView.all === 'calendar') loadBookingsCalendar('all');
@@ -790,8 +802,8 @@
       list.insertAdjacentHTML('beforebegin', `<div id="all-bookings-sync-error" class="form-error show" style="margin-bottom:12px">Couldn't sync the linked Google Calendar: ${escapeHtml(calendar_sync_error)}</div>`);
       applyBookingsView('all');
     }
-    const cutoff = startOfCurrentMonth();
-    // Unticked (the default): only this month's bookings onward — past
+    const cutoff = todayISO();
+    // Unticked (the default): only bookings that haven't ended yet — past
     // bookings are still in the app (see purgeOldBookings server-side, which
     // only drops anything over 12 months old), just hidden here unless asked
     // for. Ticked: the full list, oldest first as always, but scrolled down
@@ -1618,6 +1630,7 @@
       Api.adminSettings().then(({ settings }) => showAgentLink(settings && settings.agent_bookings_url)).catch(() => {});
     }
     document.getElementById('show-past-bookings').addEventListener('change', loadAllBookings);
+    document.getElementById('show-past-my-bookings').addEventListener('change', loadMyBookings);
     applyDatesFromQuery();
     await loadCharges();
     await loadBookingCalendar();
