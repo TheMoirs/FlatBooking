@@ -1188,7 +1188,7 @@
   function googleCalendarUrl(v) {
     const p = new URLSearchParams({
       action: 'TEMPLATE',
-      text: `Casa Moir Holiday - ${v.whoGoing}`,
+      text: `Spain - ${v.whoGoing}`,
       dates: `${compactDatePlus(v.start, 0)}/${compactDatePlus(v.end, 1)}`,
       details: calendarDetails(v),
       location: FLAT_LOCATION,
@@ -1204,7 +1204,7 @@
       `DTSTAMP:${stamp}`,
       `DTSTART;VALUE=DATE:${compactDatePlus(v.start, 0)}`,
       `DTEND;VALUE=DATE:${compactDatePlus(v.end, 1)}`,
-      `SUMMARY:${esc(`Casa Moir Holiday - ${v.whoGoing}`)}`,
+      `SUMMARY:${esc(`Spain - ${v.whoGoing}`)}`,
       `LOCATION:${esc(FLAT_LOCATION)}`,
       `DESCRIPTION:${esc(calendarDetails(v))}`,
       'END:VEVENT', 'END:VCALENDAR',
