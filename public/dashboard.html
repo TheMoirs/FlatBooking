@@ -428,6 +428,7 @@
       <p id="confirm-done-msg" style="margin-bottom:12px"></p>
       <p><strong id="confirm-cal-question">Would you like to save this stay to your own calendar?</strong></p>
       <p id="confirm-cal-note" class="sub" style="display:none;margin:8px 0 0"></p>
+      <a class="btn btn-ghost btn-small" id="cal-find-old-link" target="_blank" rel="noopener" style="display:none;margin-top:8px">Find my old entry in Google Calendar</a>
       <div class="action-row stack" style="margin-top:12px">
         <a class="btn btn-primary" id="cal-google-link" target="_blank" rel="noopener">Google Calendar</a>
         <button class="btn btn-ghost" id="cal-ics-btn" type="button">Apple / Outlook (.ics)</button>
@@ -1249,6 +1250,12 @@
     note.textContent = `Google Calendar adds the updated stay as a new event, so please delete your old "${oldTitle}" entry. ` +
       'Apple Calendar and Outlook should replace the old entry for you; if you end up with two, delete the older one.';
     note.style.display = isUpdate ? '' : 'none';
+    // Opens a Google Calendar search for the old entry so it's one tap to
+    // delete. Searches on the name only, so it also finds entries saved
+    // under the earlier "Casa Moir Holiday - …" title.
+    const findOld = document.getElementById('cal-find-old-link');
+    findOld.href = `https://calendar.google.com/calendar/r/search?q=${encodeURIComponent(v.oldWhoGoing || v.whoGoing)}`;
+    findOld.style.display = isUpdate ? '' : 'none';
     document.getElementById('cal-google-link').href = googleCalendarUrl(v);
     document.getElementById('cal-ics-btn').onclick = () => downloadIcs(v);
     document.getElementById('confirm-step-1').style.display = 'none';
