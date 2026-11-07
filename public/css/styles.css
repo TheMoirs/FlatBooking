@@ -673,7 +673,7 @@ section.tight { padding: 48px 0; }
 /* ---------------- Dashboard / admin ---------------- */
 
 .dash-header { background: var(--whitewash-dim); border-bottom: 1px solid var(--line); padding: 30px 0; }
-.dash-tabs { display: flex; gap: 6px; margin-top: 20px; border-bottom: 1px solid var(--line); }
+.dash-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 20px; border-bottom: 1px solid var(--line); }
 .dash-tab {
   padding: 10px 18px;
   border: none;
@@ -684,6 +684,7 @@ section.tight { padding: 48px 0; }
   color: var(--ink-soft);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  white-space: nowrap;
 }
 .dash-tab.active { color: var(--sea-deep); border-color: var(--terracotta); font-weight: 600; }
 .dash-panel { display: none; padding: 36px 0; }
@@ -706,7 +707,14 @@ section.tight { padding: 48px 0; }
    pinned to the right even when the row wraps onto two lines — with only
    space-between, a wrapped block sits on its own line with nothing to be
    "between", so it fell back to the left. */
-.booking-actions { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.booking-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 12px; margin-left: auto; max-width: 100%; }
+/* Phones: tighter tabs so they wrap onto two tidy rows, and booking/user
+   buttons that wrap below each other instead of running off the edge. */
+@media (max-width: 560px) {
+  .dash-tabs { gap: 0 2px; }
+  .dash-tab { padding: 10px 12px; }
+  .booking-actions { gap: 8px; }
+}
 .booking-dates { font-family: var(--serif); font-size: 1.05rem; }
 .booking-meta { font-size: 0.85rem; color: var(--ink-soft); }
 .status-pill {
