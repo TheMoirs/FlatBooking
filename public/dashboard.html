@@ -266,6 +266,16 @@
           <button class="btn btn-ghost" id="copy-agent-link-btn" type="button">Copy link</button>
           <button class="btn btn-ghost" id="new-agent-link-btn" type="button">Make a new link</button>
         </div>
+
+        <h3 style="margin-top:36px">Pre-authorised users</h3>
+        <p style="color:var(--ink-soft)">People whose email is on this list are approved automatically when they create an account, so they can log in straight away. Separate emails with commas. Anyone already waiting for approval whose email you add is approved when you save.</p>
+        <div class="field">
+          <label for="preauthorised-emails">Emails</label>
+          <textarea id="preauthorised-emails" rows="4" placeholder="jane@example.com, john@example.com"></textarea>
+        </div>
+        <div class="form-error" id="preauthorised-error"></div>
+        <div class="form-ok" id="preauthorised-ok"></div>
+        <button class="btn btn-primary" id="save-preauthorised-btn" type="button">Save list</button>
       </div>
     </div>
   </div>
@@ -895,7 +905,26 @@
     document.getElementById('cleaning-1-room').value = (settings && settings.cleaning_fee_1_room != null) ? settings.cleaning_fee_1_room : '';
     document.getElementById('cleaning-2-rooms').value = (settings && settings.cleaning_fee_2_rooms != null) ? settings.cleaning_fee_2_rooms : '';
     showAgentLink(settings && settings.agent_bookings_url);
+    document.getElementById('preauthorised-emails').value = (settings && settings.preauthorised_emails) || '';
   }
+
+  document.getElementById('save-preauthorised-btn').addEventListener('click', async () => {
+    const errEl = document.getElementById('preauthorised-error');
+    const okEl = document.getElementById('preauthorised-ok');
+    errEl.classList.remove('show'); okEl.classList.remove('show');
+    try {
+      const { preauthorised_emails, approved } = await Api.savePreauthorised(
+        document.getElementById('preauthorised-emails').value
+      );
+      document.getElementById('preauthorised-emails').value = preauthorised_emails || '';
+      okEl.textContent = 'List saved.' + (approved && approved.length
+        ? ` Approved ${approved.join(', ')}, who ${approved.length === 1 ? 'was' : 'were'} waiting — they've been emailed.`
+        : '');
+      okEl.classList.add('show');
+    } catch (e) {
+      errEl.textContent = e.message; errEl.classList.add('show');
+    }
+  });
 
   function showAgentLink(url) {
     if (!url) return;

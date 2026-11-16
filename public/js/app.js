@@ -97,6 +97,9 @@ const Api = {
   async adminSetUserBlocked(id, blocked) {
     return Api._send(`/api/admin/users/${id}/${blocked ? 'block' : 'unblock'}`, {}, 'POST');
   },
+  async savePreauthorised(emails) {
+    return Api._send('/api/admin/preauthorised', { emails }, 'PUT');
+  },
   async adminNewAgentLink() {
     return Api._send('/api/admin/agent-link', {}, 'POST');
   },

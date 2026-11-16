@@ -121,3 +121,8 @@ ALTER TABLE settings ADD COLUMN IF NOT EXISTS agent_key TEXT;
 -- it existed count as not needing one.
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS baby_cot_required TEXT CHECK (baby_cot_required IN ('Yes', 'No'));
 UPDATE bookings SET baby_cot_required = 'No' WHERE baby_cot_required IS NULL;
+
+-- Pre-authorised users: a comma-separated list of emails, edited in admin
+-- Settings. A new account whose email is on the list is approved straight
+-- away instead of waiting for an admin.
+ALTER TABLE settings ADD COLUMN IF NOT EXISTS preauthorised_emails TEXT;

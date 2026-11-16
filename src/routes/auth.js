@@ -66,21 +66,50 @@ router.post('/register', async (req, res) => {
   });
 });
 
+// True if the email is on the admin-maintained pre-authorised list
+// (settings.preauthorised_emails, comma-separated).
+async function isPreauthorisedEmail(email) {
+  const r = await query('SELECT preauthorised_emails FROM settings WHERE id = 1');
+  const list = String((r.rows[0] && r.rows[0].preauthorised_emails) || '')
+    .split(/[,;\s]+/).map((e) => e.trim().toLowerCase()).filter(Boolean);
+  return list.includes(String(email || '').trim().toLowerCase());
+}
+
 // Creates a new account. The flat is only for family and friends, so
 // everyone except the admin emails starts blocked and "pending approval":
 // they aren't logged in, Ali gets an email with their details and a link to
 // approve them, and they're told what's happening.
 async function createAccount(req, res, { name, email, phone, passwordHash, googleId }) {
   const isAdmin = isAdminEmail(email);
+  const preauthorised = !isAdmin && (await isPreauthorisedEmail(email));
+  const approved = isAdmin || preauthorised;
   const result = await query(
     `INSERT INTO users (name, email, phone, password_hash, google_id, role, blocked, pending_approval)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
      RETURNING id, name, email, phone, role`,
-    [name, email, phone, passwordHash, googleId, isAdmin ? 'admin' : 'user', !isAdmin]
+    [name, email, phone, passwordHash, googleId, isAdmin ? 'admin' : 'user', !approved]
   );
   const user = result.rows[0];
 
-  if (isAdmin) {
+  if (preauthorised) {
+    // Let Ali know who's joined, but there's nothing for him to do.
+    try {
+      await sendMail({
+        to: APPROVALS_EMAIL,
+        subject: `New Casa Moir account (pre-authorised): ${user.name}`,
+        text:
+          `Someone on your pre-authorised list has created an account on the Casa Moir booking site, so they were approved automatically and can log in now.\n\n` +
+          `Name: ${user.name}\n` +
+          `Email: ${user.email}\n` +
+          `Phone: ${user.phone}\n` +
+          `Signed up with: ${googleId ? 'Google' : 'email and password'}\n`,
+      });
+    } catch (err) {
+      console.error('Could not send the new-account email:', err.message);
+    }
+  }
+
+  if (approved) {
     setSessionCookie(res, user);
     return res.status(201).json({ user });
   }

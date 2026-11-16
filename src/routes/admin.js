@@ -9,7 +9,8 @@ const router = express.Router();
 
 router.get('/settings', attachUser, requireAdmin, async (req, res) => {
   const result = await query(
-    `SELECT google_calendar_url, google_calendar_id, daily_rate, cleaning_fee_1_room, cleaning_fee_2_rooms, updated_at, agent_key
+    `SELECT google_calendar_url, google_calendar_id, daily_rate, cleaning_fee_1_room, cleaning_fee_2_rooms, updated_at, agent_key,
+            preauthorised_emails
      FROM settings WHERE id = 1`
   );
   const { agent_key: savedKey, ...settings } = result.rows[0] || {};
@@ -81,6 +82,54 @@ router.put('/settings', attachUser, requireAdmin, async (req, res) => {
   res.json({ settings: result.rows[0], calendar_status: calendarStatus });
 });
 
+/* ---------------- Pre-authorised users ---------------- */
+
+// PUT /api/admin/preauthorised — body { emails } (comma-separated text).
+// Saves the tidied list, then approves anyone on it who has already signed
+// up and is still waiting, and emails them to say they're in.
+router.put('/preauthorised', attachUser, requireAdmin, async (req, res) => {
+  const raw = String((req.body || {}).emails || '');
+  const entries = raw.split(/[,;\s]+/).map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const invalid = entries.filter((e) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+  if (invalid.length) {
+    return res.status(400).json({ error: `These aren't valid email addresses: ${invalid.join(', ')}` });
+  }
+  const emails = [...new Set(entries)];
+  const saved = emails.join(', ');
+  await query('UPDATE settings SET preauthorised_emails = $1, updated_at = now(), updated_by = $2 WHERE id = 1',
+    [saved || null, req.user.id]);
+
+  let approved = [];
+  if (emails.length) {
+    const r = await query(
+      `UPDATE users SET blocked = FALSE, pending_approval = FALSE
+       WHERE pending_approval = TRUE AND email = ANY($1::text[])
+       RETURNING id, name, email`,
+      [emails]
+    );
+    approved = r.rows;
+    for (const user of approved) {
+      try {
+        await sendApprovedEmail(req, user);
+      } catch (err) {
+        console.error('Could not send the approval email:', err.message);
+      }
+    }
+  }
+  res.json({ preauthorised_emails: saved, approved: approved.map((u) => u.name) });
+});
+
+function sendApprovedEmail(req, user) {
+  return sendMail({
+    to: user.email,
+    subject: 'Your Casa Moir account is ready',
+    text:
+      `Hi ${user.name.split(' ')[0]},\n\n` +
+      `Your account on the Casa Moir booking site has been approved, so you can now log in, see when the flat is free and request dates:\n\n` +
+      `${publicBase(req)}/\n\nSee you in Calahonda!`,
+  });
+}
+
 /* ---------------- User management ---------------- */
 
 router.get('/users', attachUser, requireAdmin, async (req, res) => {
@@ -142,14 +191,7 @@ async function setBlocked(req, res, blocked) {
   // Unblocking someone who was waiting for approval: tell them they're in.
   if (!blocked && user.pending_approval) {
     try {
-      await sendMail({
-        to: user.email,
-        subject: 'Your Casa Moir account is ready',
-        text:
-          `Hi ${user.name.split(' ')[0]},\n\n` +
-          `Your account on the Casa Moir booking site has been approved, so you can now log in, see when the flat is free and request dates:\n\n` +
-          `${publicBase(req)}/\n\nSee you in Calahonda!`,
-      });
+      await sendApprovedEmail(req, user);
     } catch (err) {
       console.error('Could not send the approval email:', err.message);
     }
