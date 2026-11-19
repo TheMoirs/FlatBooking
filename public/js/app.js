@@ -848,25 +848,23 @@ function showAuthMode(mode) {
   hideAuthError();
 }
 
-// "Log in" / "Book Now" while logged out: on a device where fingerprint /
-// Face ID is set up, go straight to that prompt; cancelling it (or any
-// problem) falls back to the normal login popup.
+// "Log in" / "Book Now" while logged out: the login popup opens, and on a
+// device where fingerprint / Face ID is set up, its prompt opens straight
+// away on top. Dismissing that prompt (Back, or tapping outside it) leaves
+// the popup's email/password and Google options right there, for logging
+// in as someone else.
 async function startLogin() {
-  if (passkeyLoginAvailable()) {
-    try {
-      const user = await loginWithPasskey();
-      if (user) {
-        currentUser = user;
-        afterAuthSuccess();
-        return;
-      }
-    } catch (err) {
-      openAuthModal('login');
-      showAuthError(err.message);
-      return;
-    }
-  }
   openAuthModal('login');
+  if (!passkeyLoginAvailable()) return;
+  try {
+    const user = await loginWithPasskey();
+    if (user) {
+      currentUser = user;
+      afterAuthSuccess();
+    }
+  } catch (err) {
+    showAuthError(err.message);
+  }
 }
 
 function openAuthModal(mode) {
