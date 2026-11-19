@@ -853,3 +853,10 @@ section.tight { padding: 48px 0; }
 .page-menu-list[hidden] { display: none; }
 .page-menu-list button { display: block; width: 100%; text-align: left; border: 0; background: none; font: inherit; font-size: 0.95rem; color: var(--ink); padding: 12px 14px; min-height: 44px; border-radius: 6px; cursor: pointer; }
 .page-menu-list button:hover, .page-menu-list button:focus-visible { background: var(--whitewash-dim); }
+
+/* Account menu (top right when logged in) — reuses the .page-menu styles. */
+.account-menu { margin-left: 0; }
+.page-menu-sep { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
+@media (max-width: 560px) {
+  .account-menu .page-menu-btn { width: 36px; height: 36px; }
+}

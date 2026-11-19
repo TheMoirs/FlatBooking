@@ -484,16 +484,21 @@
       { id: 'new-booking', label: 'New booking' },
       { id: 'my-bookings', label: 'My bookings' },
       { id: 'all-bookings', label: 'All bookings' },
-      { id: 'users', label: 'Users' },
-      { id: 'settings', label: 'Settings' },
     ],
+  };
+  // Admin panels opened from the account menu (top right) rather than the
+  // tab bar.
+  const MENU_PANELS = {
+    user: [],
+    admin: ['users', 'settings'],
   };
 
   function showTab(id) {
     document.querySelectorAll('.dash-panel').forEach((p) => p.classList.remove('active'));
     document.querySelectorAll('.dash-tab').forEach((t) => t.classList.remove('active'));
     document.getElementById('panel-' + id).classList.add('active');
-    document.querySelector(`.dash-tab[data-tab="${id}"]`).classList.add('active');
+    const tabBtn = document.querySelector(`.dash-tab[data-tab="${id}"]`);
+    if (tabBtn) tabBtn.classList.add('active');
     if (id === 'my-bookings') loadMyBookings();
     if (id === 'all-bookings') loadAllBookings();
     if (id === 'users') loadUsers();
@@ -1747,7 +1752,9 @@
     await loadBookingCalendar();
     const params = new URLSearchParams(window.location.search);
     const requestedTab = params.get('tab');
-    const availableTabs = (TABS[user.role] || TABS.user).map((t) => t.id);
+    const availableTabs = (TABS[user.role] || TABS.user).map((t) => t.id).concat(MENU_PANELS[user.role] || []);
+    // Lets the account menu switch to Users / Settings without a reload.
+    window.dashShowTab = (id) => { if (availableTabs.includes(id)) showTab(id); };
     showTab(availableTabs.includes(requestedTab) ? requestedTab : await defaultTab(user, params));
   })();
 

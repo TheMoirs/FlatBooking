@@ -130,6 +130,7 @@ const Api = {
 };
 
 let currentUser = null;
+let accountMenuListenersAdded = false;
 // Where to send someone after they successfully log in / register.
 let postAuthRedirect = null;
 
@@ -147,11 +148,54 @@ function renderNav() {
     slot.innerHTML = `
       <span style="font-size:0.9rem;color:var(--ink-soft)">Hi, ${escapeHtml(currentUser.name.split(' ')[0])}</span>
       <a class="btn btn-ghost btn-small" id="nav-bookings-link" href="/dashboard.html">${currentUser.role === 'admin' ? 'Admin' : 'Bookings'}</a>
-      <button class="btn btn-secondary btn-small" id="logout-btn">Log out</button>
+      <div class="page-menu account-menu">
+        <button type="button" class="page-menu-btn" id="account-menu-btn" aria-label="Account menu" aria-haspopup="true" aria-expanded="false">
+          <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="2" rx="1" fill="currentColor"/><rect x="3" y="9" width="14" height="2" rx="1" fill="currentColor"/><rect x="3" y="14" width="14" height="2" rx="1" fill="currentColor"/></svg>
+        </button>
+        <div class="page-menu-list" id="account-menu-list" role="menu" hidden>
+          ${currentUser.role === 'admin' ? `
+          <button type="button" role="menuitem" data-dash-tab="users">Users</button>
+          <button type="button" role="menuitem" data-dash-tab="settings">Settings</button>
+          <hr class="page-menu-sep" />` : ''}
+          <button type="button" role="menuitem" id="add-shortcut-btn">Add to home screen</button>
+          <button type="button" role="menuitem" id="logout-btn">Log out</button>
+        </div>
+      </div>
     `;
     // The dashboard picks the right tab itself: All bookings for admins;
     // My bookings for anyone with an upcoming stay, otherwise New booking.
+    const menuBtn = document.getElementById('account-menu-btn');
+    const menuList = document.getElementById('account-menu-list');
+    const setMenu = (open) => {
+      menuList.hidden = !open;
+      menuBtn.setAttribute('aria-expanded', String(open));
+    };
+    menuBtn.addEventListener('click', (e) => { e.stopPropagation(); setMenu(menuList.hidden); });
+    if (!accountMenuListenersAdded) {
+      accountMenuListenersAdded = true;
+      document.addEventListener('click', (e) => {
+        const list = document.getElementById('account-menu-list');
+        if (list && !e.target.closest('.account-menu')) { list.hidden = true; document.getElementById('account-menu-btn').setAttribute('aria-expanded', 'false'); }
+      });
+      document.addEventListener('keydown', (e) => {
+        const list = document.getElementById('account-menu-list');
+        if (e.key === 'Escape' && list) { list.hidden = true; document.getElementById('account-menu-btn').setAttribute('aria-expanded', 'false'); }
+      });
+    }
+    // Users and Settings live in this menu rather than the dashboard's tab
+    // bar. On the dashboard they switch panel in place; elsewhere they open
+    // the dashboard on that panel.
+    menuList.querySelectorAll('[data-dash-tab]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        setMenu(false);
+        const tab = btn.dataset.dashTab;
+        if (typeof window.dashShowTab === 'function') window.dashShowTab(tab);
+        else window.location.href = '/dashboard.html?tab=' + tab;
+      });
+    });
+    document.getElementById('add-shortcut-btn').addEventListener('click', () => { setMenu(false); addShortcut(); });
     document.getElementById('logout-btn').addEventListener('click', async () => {
+      setMenu(false);
       await Api.logout();
       currentUser = null;
       window.location.href = '/';
@@ -182,6 +226,64 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+/* -------------------- Add to home screen -------------------- */
+
+// Browsers that can add the shortcut themselves (Chrome and Edge on Android
+// and computers) offer it through this event; others (iPhones, Firefox)
+// get step-by-step instructions instead.
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; });
+window.addEventListener('appinstalled', () => { installPrompt = null; });
+
+function shortcutSteps() {
+  const ua = navigator.userAgent;
+  const isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isIOS) return [
+    'Tap the <strong>Share</strong> button (the square with an arrow pointing up) in Safari’s toolbar.',
+    'Scroll down and tap <strong>Add to Home Screen</strong>, then <strong>Add</strong>.',
+  ];
+  if (/Android/.test(ua)) return [
+    'Tap your browser’s menu (usually <strong>⋮</strong> at the top or bottom right).',
+    'Tap <strong>Add to Home screen</strong> (or <strong>Install app</strong>), then <strong>Add</strong>.',
+  ];
+  return [
+    'In Chrome or Edge, open the browser menu (<strong>⋮</strong> or <strong>…</strong> at the top right).',
+    'Choose <strong>Install</strong>, or <strong>Cast, save and share → Install page as app</strong> in Chrome. In other browsers, bookmark this page.',
+  ];
+}
+
+function buildShortcutModal() {
+  if (document.getElementById('home-shortcut-modal')) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-backdrop';
+  wrap.id = 'home-shortcut-modal';
+  wrap.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="home-shortcut-title">
+      <button class="close-x" aria-label="Close">&times;</button>
+      <h3 id="home-shortcut-title">Add to home screen</h3>
+      <p class="sub">Open Casa Moir straight from your phone or computer, like an app.</p>
+      <ol id="home-shortcut-steps" style="line-height:1.7;padding-left:20px;margin:0 0 16px"></ol>
+      <button class="btn btn-primary" type="button" id="home-shortcut-ok" style="width:100%;justify-content:center">OK</button>
+    </div>`;
+  document.body.appendChild(wrap);
+  const close = () => wrap.classList.remove('open');
+  wrap.querySelector('.close-x').addEventListener('click', close);
+  wrap.querySelector('#home-shortcut-ok').addEventListener('click', close);
+  wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+}
+
+async function addShortcut() {
+  if (installPrompt) {
+    installPrompt.prompt();
+    try { await installPrompt.userChoice; } catch (e) { /* ignore */ }
+    installPrompt = null;
+    return;
+  }
+  buildShortcutModal();
+  document.getElementById('home-shortcut-steps').innerHTML = shortcutSteps().map((s) => `<li>${s}</li>`).join('');
+  document.getElementById('home-shortcut-modal').classList.add('open');
 }
 
 /* -------------------- Auth modal -------------------- */
