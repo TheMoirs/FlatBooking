@@ -247,12 +247,13 @@ async function deleteGoogleCalendarEvent(eventId) {
       calendarId: calendarClient.calendarId,
       eventId,
     });
+    await rememberRemovedEvent(eventId);
     return true;
   } catch (err) {
     // 410/404 means the event is already gone (e.g. deleted by hand in
     // Google Calendar) — that still counts as success for our purposes.
     const code = err && (err.code || (err.response && err.response.status));
-    if (code === 404 || code === 410) return true;
+    if (code === 404 || code === 410) { await rememberRemovedEvent(eventId); return true; }
     console.error('Google Calendar delete failed:', err.message || err);
     return false;
   }
@@ -401,13 +402,47 @@ function refreshFeed(url) {
 
 async function getCachedBusyRanges(url) {
   if (!url) return [];
+  let ranges;
   if (feedCache && feedCache.url === url) {
     if (Date.now() - feedCache.at > FEED_TTL_MS) {
       refreshFeed(url).catch((err) => console.error('Calendar feed refresh failed:', err.message || err));
     }
-    return feedCache.ranges;
+    ranges = feedCache.ranges;
+  } else {
+    ranges = await refreshFeed(url);
   }
-  return refreshFeed(url);
+  return withoutRemovedEvents(ranges);
+}
+
+// Google's iCal feed can keep listing an event for a while after it's been
+// deleted. Without this, a booking deleted in the app would still show as
+// booked on the calendars (and could even be re-imported into All bookings)
+// until the feed caught up. So events the app deletes are remembered here —
+// in the database, so a server restart doesn't forget them — and left out of
+// the feed. Kept for a week, by which time the feed has long caught up.
+const REMOVED_EVENT_DAYS = 7;
+async function rememberRemovedEvent(eventId) {
+  try {
+    await query(
+      `INSERT INTO removed_calendar_events (event_id) VALUES ($1)
+       ON CONFLICT (event_id) DO UPDATE SET removed_at = NOW()`,
+      [eventId]
+    );
+  } catch (err) {
+    console.error('Could not record a removed calendar event:', err.message || err);
+  }
+}
+async function withoutRemovedEvents(ranges) {
+  try {
+    await query(`DELETE FROM removed_calendar_events WHERE removed_at < NOW() - INTERVAL '${REMOVED_EVENT_DAYS} days'`);
+    const r = await query('SELECT event_id FROM removed_calendar_events');
+    if (!r.rows.length) return ranges;
+    const removed = new Set(r.rows.map((row) => row.event_id));
+    return ranges.filter((range) => !removed.has(deriveGoogleEventIdFromUid(range.uid)));
+  } catch (err) {
+    console.error('Could not check removed calendar events:', err.message || err);
+    return ranges;
+  }
 }
 
 // After a booking changes in the app: the next calendar load triggers a

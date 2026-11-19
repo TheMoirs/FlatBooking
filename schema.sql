@@ -156,3 +156,11 @@ INSERT INTO guides (slug, title) VALUES
   ('opening-up', 'Directions & opening up'),
   ('closing-down', 'Closing down & heading home')
 ON CONFLICT (slug) DO NOTHING;
+
+-- Google Calendar events the app has deleted (with their booking). Google's
+-- iCal feed can keep listing a deleted event for a while, so these are left
+-- out of the feed until it catches up. Entries are cleared after a week.
+CREATE TABLE IF NOT EXISTS removed_calendar_events (
+  event_id    TEXT PRIMARY KEY,
+  removed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
