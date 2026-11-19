@@ -318,6 +318,17 @@ function lsGet(key) { try { return localStorage.getItem(key); } catch (e) { retu
 function lsSet(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* ignore */ } }
 const passkeySetKey = (userId) => `casamoir-passkey-${userId}`;
 const passkeyDismissedKey = (userId) => `casamoir-passkey-dismissed-${userId}`;
+// Set once fingerprint / Face ID has been set up or used on this device, for
+// anyone. The login popup only offers it on devices like that — elsewhere
+// the phone would just say "No passkeys available".
+const PASSKEY_DEVICE_KEY = 'casamoir-passkey-device';
+function rememberPasskeyOnDevice(userId) {
+  lsSet(passkeySetKey(userId), '1');
+  lsSet(PASSKEY_DEVICE_KEY, '1');
+}
+function passkeyLoginAvailable() {
+  return passkeySupport === true && Boolean(lsGet(PASSKEY_DEVICE_KEY));
+}
 const PASSKEY_OFFER_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000; // "Not now" = 30 days
 
 let passkeySupport = null;
@@ -366,14 +377,14 @@ async function setUpPasskey() {
     attestation = await lib.startRegistration({ optionsJSON: options });
   } catch (err) {
     if (err && (err.name === 'InvalidStateError' || err.code === 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED')) {
-      lsSet(passkeySetKey(currentUser.id), '1');
+      rememberPasskeyOnDevice(currentUser.id);
       return 'already';
     }
     if (err && err.name === 'NotAllowedError') return 'cancelled';
     throw err;
   }
   await Api._send('/api/auth/passkey/register/verify', attestation);
-  lsSet(passkeySetKey(currentUser.id), '1');
+  rememberPasskeyOnDevice(currentUser.id);
   return 'done';
 }
 
@@ -389,7 +400,7 @@ async function loginWithPasskey() {
     throw err;
   }
   const { user } = await Api._send('/api/auth/passkey/login/verify', assertion);
-  lsSet(passkeySetKey(user.id), '1');
+  rememberPasskeyOnDevice(user.id);
   return user;
 }
 
@@ -766,10 +777,10 @@ function showAuthMode(mode) {
   // Fingerprint / Face ID button: on the login screen only, and only on
   // devices that have it (checked once, then remembered).
   const passkeySection = modal.querySelector('#passkey-login-section');
-  passkeySection.style.display = (isLogin && passkeySupport === true) ? '' : 'none';
+  passkeySection.style.display = (isLogin && passkeyLoginAvailable()) ? '' : 'none';
   if (isLogin && passkeySupport === null) {
     passkeysSupported().then((ok) => {
-      if (ok && modal.querySelector('#login-form').style.display !== 'none') {
+      if (ok && passkeyLoginAvailable() && modal.querySelector('#login-form').style.display !== 'none') {
         passkeySection.style.display = '';
         refreshAuthDivider();
       }
