@@ -70,7 +70,7 @@ async function sendBookingRequestedEmails(req, bookingId) {
     subject: `Your Casa Moir booking request: ${dateRange(b)}`,
     text:
       `Hi ${firstName(b.booker_name)},\n\n` +
-      `Thanks for your booking request for Mirador de Calahonda. Here are the details:\n\n` +
+      `Thanks for your booking request for the Moir holiday home. Here are the details:\n\n` +
       `${details}\n\n` +
       `Ali or Dawn will confirm your booking as soon as possible — you'll get another email when they do.\n\n` +
       `Need to change something? Edit your booking here:\n${editLink(base, b)}\n\n` +

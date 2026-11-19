@@ -290,7 +290,15 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="details-modal-title">
     <button class="close-x" id="details-modal-close" aria-label="Close">&times;</button>
     <h3 id="details-modal-title">Booking details</h3>
+    <p id="details-modal-dates" style="font-weight:600;margin:0 0 8px;display:none"></p>
     <pre id="details-modal-body" style="white-space:pre-wrap;font-family:inherit;font-size:0.95rem;line-height:1.6;margin:0"></pre>
+    <!-- Admins arriving from the new-booking email: who booked, and Authorise. -->
+    <div id="details-modal-booker" style="display:none;margin-top:14px;font-size:0.95rem;line-height:1.6"></div>
+    <div id="details-modal-actions" style="display:none;margin-top:18px">
+      <div class="form-error" id="details-authorise-error"></div>
+      <div class="form-ok" id="details-authorise-ok"></div>
+      <button class="btn btn-primary" type="button" id="details-authorise-btn" style="width:100%;justify-content:center">Authorise</button>
+    </div>
   </div>
 </div>
 
@@ -632,12 +640,57 @@
     return typeof b.id === 'number' || /^\d+$/.test(String(b.id));
   }
 
-  function openDetailsModal(booking) {
+  // `opts.authorise` (admins, from the new-booking email): also show who
+  // booked it and an Authorise button — view and authorise, no editing.
+  let detailsBooking = null;
+  const withAuthoriseFor = (opts) => Boolean(opts.authorise && currentUser && currentUser.role === 'admin');
+  let detailsReloadFn = null;
+  function openDetailsModal(booking, opts = {}) {
     const text = (booking.calendar_description && booking.calendar_description.trim())
       || 'No further details recorded for this booking.';
     document.getElementById('details-modal-body').textContent = text;
+    const datesEl = document.getElementById('details-modal-dates');
+    datesEl.style.display = withAuthoriseFor(opts) ? '' : 'none';
+    if (withAuthoriseFor(opts)) datesEl.textContent = fmtRangeParts(booking.start_date, booking.end_date).dates;
+    const withAuthorise = Boolean(opts.authorise && currentUser && currentUser.role === 'admin');
+    detailsBooking = withAuthorise ? booking : null;
+    detailsReloadFn = opts.reloadFn || null;
+    const booker = document.getElementById('details-modal-booker');
+    const actions = document.getElementById('details-modal-actions');
+    booker.style.display = withAuthorise ? '' : 'none';
+    actions.style.display = withAuthorise ? '' : 'none';
+    if (withAuthorise) {
+      booker.innerHTML = `<strong>Booked by:</strong> ${escapeHtml(booking.guest_name || '—')}`
+        + (booking.guest_email ? `<br>${escapeHtml(booking.guest_email)}` : '')
+        + (booking.guest_phone ? `<br>${escapeHtml(booking.guest_phone)}` : '');
+      document.getElementById('details-authorise-error').classList.remove('show');
+      showDetailsConfirmed(booking.status === 'confirmed', 'This booking is already confirmed.');
+    }
     document.getElementById('details-modal').classList.add('open');
   }
+  function showDetailsConfirmed(confirmed, message) {
+    const ok = document.getElementById('details-authorise-ok');
+    ok.textContent = message || '';
+    ok.classList.toggle('show', confirmed);
+    document.getElementById('details-authorise-btn').style.display = confirmed ? 'none' : '';
+  }
+  document.getElementById('details-authorise-btn').addEventListener('click', async () => {
+    if (!detailsBooking) return;
+    const btn = document.getElementById('details-authorise-btn');
+    const errEl = document.getElementById('details-authorise-error');
+    errEl.classList.remove('show');
+    btn.disabled = true;
+    try {
+      await Api.authoriseBooking(detailsBooking.id);
+      detailsBooking.status = 'confirmed';
+      showDetailsConfirmed(true, 'Confirmed — the guest has been emailed.');
+      if (detailsReloadFn) detailsReloadFn();
+    } catch (e) {
+      errEl.textContent = e.message; errEl.classList.add('show');
+    } finally {
+      btn.disabled = false;
+    }
+  });
   function closeDetailsModal() {
     document.getElementById('details-modal').classList.remove('open');
   }
@@ -791,7 +844,10 @@
     if (!booking) return;
     const row = document.querySelector(`#${listId} .booking-row[data-id="${CSS.escape(id)}"]`);
     if (row) { row.classList.add('highlight'); row.scrollIntoView({ block: 'center' }); }
-    if (isEditable(booking)) openEditModal(booking, reloadFn);
+    // Admins (All bookings, from the new-booking email): view + Authorise.
+    // Guests (My bookings, from their own email): the edit popup.
+    if (listId === 'all-bookings-list') openDetailsModal(booking, { authorise: isEditable(booking), reloadFn });
+    else if (isEditable(booking)) openEditModal(booking, reloadFn);
     else openDetailsModal(booking);
   }
 
