@@ -107,7 +107,7 @@ async function sendBookingConfirmedEmail(req, bookingId) {
     subject: `Your stay is confirmed: ${dateRange(b)}`,
     text:
       `Hi ${firstName(b.booker_name)},\n\n` +
-      `Good news — your stay at Mirador de Calahonda is confirmed. Here are the details:\n\n` +
+      `Good news — your stay at the Moir holiday home is confirmed. Here are the details:\n\n` +
       `${await detailsText(b)}\n\n` +
       `Edit your booking:\n${editLink(base, b)}\n\n` +
       `Directions & opening up (address, directions from the airport, Wi-Fi):\n${base}/opening-up\n\n` +
