@@ -1,7 +1,8 @@
 // Builds a printable PDF of a guest guide from its text — the same simple
 // formatting the guide page understands (see renderGuide in public/js/app.js):
 //   blank line → new paragraph (single line breaks kept), "1. " / "1) " →
-//   numbered step, "# " → heading, **bold**, [text](https://…), bare links.
+//   numbered step, "# " → heading, **bold**, [text](https://…), bare links;
+//   "---" alone on a line → new page.
 const path = require('path');
 const PDFDocument = require('pdfkit');
 
@@ -20,6 +21,8 @@ function parseBlocks(text) {
     const line = raw.trim();
     const step = line.match(/^(\d+)[.)]\s+(.*)$/);
     if (!line) { endPara(); if (list) list.gap = true; return; }
+    // "---" on its own line: start a new page here (PDF only).
+    if (/^-{3,}$/.test(line)) { endPara(); endList(); blocks.push({ type: 'page' }); return; }
     if (line.startsWith('# ')) { endPara(); endList(); blocks.push({ type: 'h', text: line.slice(2) }); return; }
     if (step) {
       endPara();
@@ -100,7 +103,9 @@ function buildGuidePdf({ title, body }) {
 
   doc.fontSize(11);
   for (const block of parseBlocks(body)) {
-    if (block.type === 'h') {
+    if (block.type === 'page') {
+      if (doc.y > doc.page.margins.top + 1) doc.addPage();
+    } else if (block.type === 'h') {
       if (doc.y > doc.page.height - doc.page.margins.bottom - 60) doc.addPage();
       doc.moveDown(0.5);
       doc.font('Times-Bold').fontSize(15).fillColor(SEA).text(block.text, left, doc.y, { width });

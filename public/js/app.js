@@ -293,6 +293,8 @@ function renderGuide(text) {
     const line = raw.trim();
     const step = line.match(/^(\d+)[.)]\s+(.*)$/);
     if (!line) { flushPara(); if (list) list.gap = true; return; }
+    // "---" alone on a line is a page break for the PDF — nothing to show here.
+    if (/^-{3,}$/.test(line)) { flushPara(); flushList(); return; }
     if (line.startsWith('# ')) { flushPara(); flushList(); html.push(`<h2>${inline(line.slice(2))}</h2>`); return; }
     if (step) {
       flushPara();

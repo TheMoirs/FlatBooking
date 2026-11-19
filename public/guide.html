@@ -39,7 +39,7 @@
 <div class="container guide-page">
   <img class="guide-sign" src="/images/mirador-sign.jpg" alt="The Mirador de Calahonda sign" />
   <div class="guide-actions" id="guide-actions" style="display:none">
-    <a class="btn btn-secondary" id="guide-pdf-btn" href="#" target="_blank" rel="noopener">Print / save as PDF</a>
+    <button class="btn btn-secondary" type="button" id="guide-pdf-btn">Save / print PDF</button>
   </div>
   <div class="form-error" id="guide-error"></div>
   <div id="guide-login-note" style="display:none">
@@ -74,6 +74,49 @@
     'closing-down': 'Leaving the flat ready to be left empty, and getting back to the airport.',
   };
 
+  // "Save / print PDF". Phones: the share sheet, with the PDF attached —
+  // it has Print, Save to Drive/Files, WhatsApp, email… (a phone's own PDF
+  // viewer often has no print option). Computers: a plain download. The PDF
+  // is fetched as soon as the page loads, because phones only allow the
+  // share sheet straight after a tap.
+  function setUpPdfButton(title) {
+    const fileName = `Casa Moir - ${title.replace(/[^\w &-]/g, '')}.pdf`;
+    const pdfReady = fetch(`/api/guides/${encodeURIComponent(slug)}/pdf`, { credentials: 'include' })
+      .then((r) => { if (!r.ok) throw new Error("Couldn't make the PDF. Please try again."); return r.blob(); });
+    pdfReady.catch(() => {});
+    const ua = navigator.userAgent;
+    const isPhone = /Android|iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const btn = document.getElementById('guide-pdf-btn');
+    btn.addEventListener('click', async () => {
+      const errEl = document.getElementById('guide-error');
+      errEl.classList.remove('show');
+      try {
+        const blob = await pdfReady;
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+        if (isPhone && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title });
+          } catch (err) {
+            if (err && err.name === 'AbortError') return; // closed the share sheet
+            throw err;
+          }
+          return;
+        }
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+      } catch (err) {
+        errEl.textContent = err.message || "Couldn't make the PDF. Please try again.";
+        errEl.classList.add('show');
+      }
+    });
+    document.getElementById('guide-actions').style.display = '';
+  }
+
   (async function boot() {
     const user = await initSession();
     document.getElementById('guide-intro').textContent = INTROS[slug] || '';
@@ -92,10 +135,7 @@
       document.getElementById('guide-title').textContent = guide.title;
       document.getElementById('guide-body').innerHTML = renderGuide(guide.body)
         || '<p style="color:var(--ink-soft)">Nothing here yet.</p>';
-      if (guide.body) {
-        document.getElementById('guide-pdf-btn').href = `/api/guides/${encodeURIComponent(slug)}/pdf`;
-        document.getElementById('guide-actions').style.display = '';
-      }
+      if (guide.body) setUpPdfButton(guide.title);
     } catch (err) {
       document.getElementById('guide-body').innerHTML = '';
       const el = document.getElementById('guide-error');
