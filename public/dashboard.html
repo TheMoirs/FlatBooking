@@ -991,11 +991,14 @@
 
   /* -------- Booking calendar (date-range picker) -------- */
 
-  async function loadBookingCalendar() {
+  // `beforeDraw` (optional): something to wait for before drawing — on
+  // first load, the charges, which are fetched alongside the calendar.
+  async function loadBookingCalendar(beforeDraw) {
     const from = new Date().toISOString().slice(0, 10);
     const toDate = new Date(); toDate.setMonth(toDate.getMonth() + 13);
     const { ranges } = await Api.availability(from, toDate.toISOString().slice(0, 10));
     bookingCal.ranges = ranges;
+    if (beforeDraw) await beforeDraw;
     drawBookingCalendar();
   }
 
@@ -1748,14 +1751,20 @@
     document.getElementById('show-past-bookings').addEventListener('change', loadAllBookings);
     document.getElementById('show-past-my-bookings').addEventListener('change', loadMyBookings);
     applyDatesFromQuery();
-    await loadCharges();
-    await loadBookingCalendar();
     const params = new URLSearchParams(window.location.search);
     const requestedTab = params.get('tab');
     const availableTabs = (TABS[user.role] || TABS.user).map((t) => t.id).concat(MENU_PANELS[user.role] || []);
     // Lets the account menu switch to Users / Settings without a reload.
     window.dashShowTab = (id) => { if (availableTabs.includes(id)) showTab(id); };
-    showTab(availableTabs.includes(requestedTab) ? requestedTab : await defaultTab(user, params));
+    // Charges, the booking calendar and the choice of opening tab all load
+    // at the same time rather than one after another. The tab opens as soon
+    // as its own data is in; the calendar fills in when it arrives.
+    const chargesReady = loadCharges();
+    const calendarReady = loadBookingCalendar(chargesReady);
+    const tab = availableTabs.includes(requestedTab) ? requestedTab : await defaultTab(user, params);
+    await chargesReady;
+    showTab(tab);
+    await calendarReady;
   })();
 
   // Where the dashboard opens when no tab is named: picked dates go straight

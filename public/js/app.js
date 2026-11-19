@@ -146,7 +146,7 @@ function renderNav() {
 
   if (currentUser) {
     slot.innerHTML = `
-      <span style="font-size:0.9rem;color:var(--ink-soft)">Hi, ${escapeHtml(currentUser.name.split(' ')[0])}</span>
+      <span style="font-size:0.9rem;color:var(--ink-soft)">Hi ${escapeHtml(currentUser.name.split(' ')[0])}</span>
       <div class="page-menu account-menu">
         <button type="button" class="page-menu-btn" id="account-menu-btn" aria-label="Account menu" aria-haspopup="true" aria-expanded="false">
           <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="2" rx="1" fill="currentColor"/><rect x="3" y="9" width="14" height="2" rx="1" fill="currentColor"/><rect x="3" y="14" width="14" height="2" rx="1" fill="currentColor"/></svg>
@@ -157,6 +157,7 @@ function renderNav() {
           <button type="button" role="menuitem" data-dash-tab="settings">Settings</button>
           <hr class="page-menu-sep" />` : ''}
           <button type="button" role="menuitem" id="add-shortcut-btn">Add to home screen</button>
+          <button type="button" role="menuitem" id="setup-passkey-btn" hidden>Set up fingerprint / Face ID</button>
           <button type="button" role="menuitem" id="logout-btn">Log out</button>
         </div>
       </div>
@@ -193,6 +194,18 @@ function renderNav() {
       });
     });
     document.getElementById('add-shortcut-btn').addEventListener('click', () => { setMenu(false); addShortcut(); });
+    const passkeyBtn = document.getElementById('setup-passkey-btn');
+    passkeysSupported().then((ok) => { passkeyBtn.hidden = !ok; });
+    passkeyBtn.addEventListener('click', async () => {
+      setMenu(false);
+      try {
+        const result = await setUpPasskey();
+        if (result === 'done') showInfoModal('All set', 'Next time, tap <strong>Log in with fingerprint / Face ID</strong> on the login screen.');
+        else if (result === 'already') showInfoModal('Already set up', 'Fingerprint / Face ID login is already set up on this device.');
+      } catch (err) {
+        showInfoModal("Couldn't set it up", escapeHtml(err.message));
+      }
+    });
     document.getElementById('logout-btn').addEventListener('click', async () => {
       setMenu(false);
       await Api.logout();
@@ -298,6 +311,113 @@ async function addShortcut() {
   document.getElementById('home-shortcut-modal').classList.add('open');
 }
 
+/* -------------------- Fingerprint / Face ID (passkeys) -------------------- */
+
+// localStorage can be unavailable (private browsing, some in-app browsers).
+function lsGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+function lsSet(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* ignore */ } }
+const passkeySetKey = (userId) => `casamoir-passkey-${userId}`;
+const passkeyDismissedKey = (userId) => `casamoir-passkey-dismissed-${userId}`;
+const PASSKEY_OFFER_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000; // "Not now" = 30 days
+
+let passkeySupport = null;
+async function passkeysSupported() {
+  if (passkeySupport !== null) return passkeySupport;
+  try {
+    passkeySupport = Boolean(window.isSecureContext && window.PublicKeyCredential
+      && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable());
+  } catch (e) {
+    passkeySupport = false;
+  }
+  return passkeySupport;
+}
+
+// The browser helper is only fetched when someone actually uses it.
+let webauthnLib = null;
+function loadWebAuthnLib() {
+  if (!webauthnLib) {
+    webauthnLib = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = '/js/vendor/simplewebauthn-browser.min.js';
+      script.onload = () => resolve(window.SimpleWebAuthnBrowser);
+      script.onerror = () => {
+        webauthnLib = null;
+        reject(new Error("Couldn't load fingerprint / Face ID support. Please try again."));
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return webauthnLib;
+}
+
+async function shouldOfferPasskey() {
+  if (!currentUser || !(await passkeysSupported())) return false;
+  if (lsGet(passkeySetKey(currentUser.id))) return false;
+  const dismissedAt = Number(lsGet(passkeyDismissedKey(currentUser.id)) || 0);
+  return !(dismissedAt && Date.now() - dismissedAt < PASSKEY_OFFER_SNOOZE_MS);
+}
+
+// Returns 'done', 'already' (this device was set up before) or 'cancelled'.
+async function setUpPasskey() {
+  const lib = await loadWebAuthnLib();
+  const options = await Api._send('/api/auth/passkey/register/options', {});
+  let attestation;
+  try {
+    attestation = await lib.startRegistration({ optionsJSON: options });
+  } catch (err) {
+    if (err && (err.name === 'InvalidStateError' || err.code === 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED')) {
+      lsSet(passkeySetKey(currentUser.id), '1');
+      return 'already';
+    }
+    if (err && err.name === 'NotAllowedError') return 'cancelled';
+    throw err;
+  }
+  await Api._send('/api/auth/passkey/register/verify', attestation);
+  lsSet(passkeySetKey(currentUser.id), '1');
+  return 'done';
+}
+
+// Returns the logged-in user, or null if they cancelled the prompt.
+async function loginWithPasskey() {
+  const lib = await loadWebAuthnLib();
+  const options = await Api._send('/api/auth/passkey/login/options', {});
+  let assertion;
+  try {
+    assertion = await lib.startAuthentication({ optionsJSON: options });
+  } catch (err) {
+    if (err && err.name === 'NotAllowedError') return null;
+    throw err;
+  }
+  const { user } = await Api._send('/api/auth/passkey/login/verify', assertion);
+  lsSet(passkeySetKey(user.id), '1');
+  return user;
+}
+
+// A simple message popup (title + text + OK).
+function showInfoModal(title, html) {
+  let wrap = document.getElementById('info-modal');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'modal-backdrop';
+    wrap.id = 'info-modal';
+    wrap.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="info-modal-title">
+        <button class="close-x" aria-label="Close">&times;</button>
+        <h3 id="info-modal-title"></h3>
+        <p id="info-modal-text" style="line-height:1.6"></p>
+        <button class="btn btn-primary" type="button" id="info-modal-ok" style="width:100%;justify-content:center">OK</button>
+      </div>`;
+    document.body.appendChild(wrap);
+    const close = () => wrap.classList.remove('open');
+    wrap.querySelector('.close-x').addEventListener('click', close);
+    wrap.querySelector('#info-modal-ok').addEventListener('click', close);
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+  }
+  wrap.querySelector('#info-modal-title').textContent = title;
+  wrap.querySelector('#info-modal-text').innerHTML = html;
+  wrap.classList.add('open');
+}
+
 /* -------------------- Auth modal -------------------- */
 
 function buildAuthModal() {
@@ -312,6 +432,9 @@ function buildAuthModal() {
       <p class="sub" id="auth-modal-sub">Log in to book your stay at Mirador de Calahonda.</p>
       <div class="form-error" id="auth-error"></div>
 
+      <div id="passkey-login-section" style="display:none;margin-bottom:12px">
+        <button class="btn btn-secondary" type="button" id="passkey-login-btn" style="width:100%;justify-content:center">Log in with fingerprint / Face ID</button>
+      </div>
       <div id="google-signin-section">
         <div id="google-signin-btn" class="google-signin-btn"></div>
       </div>
@@ -378,6 +501,11 @@ function buildAuthModal() {
         <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center">Finish creating account</button>
       </form>
 
+      <div id="passkey-offer-panel" style="display:none">
+        <p style="line-height:1.6;margin-top:0">Log in faster next time with your fingerprint or face, instead of typing your password.</p>
+        <button class="btn btn-primary" type="button" id="passkey-offer-yes" style="width:100%;justify-content:center">Set up fingerprint / Face ID</button>
+        <button class="btn btn-ghost" type="button" id="passkey-offer-no" style="width:100%;justify-content:center;margin-top:8px">Not now</button>
+      </div>
       <div id="pending-panel" style="display:none">
         <p id="pending-message" style="line-height:1.6;margin-top:0"></p>
         <button class="btn btn-primary" type="button" id="pending-ok-btn" style="width:100%;justify-content:center">OK</button>
@@ -410,6 +538,32 @@ function buildAuthModal() {
 
   wrap.querySelector('.close-x').addEventListener('click', closeAuthModal);
   wrap.querySelector('#pending-ok-btn').addEventListener('click', closeAuthModal);
+
+  wrap.querySelector('#passkey-login-btn').addEventListener('click', async () => {
+    hideAuthError();
+    try {
+      const user = await loginWithPasskey();
+      if (!user) return; // cancelled at the fingerprint / face prompt
+      currentUser = user;
+      afterAuthSuccess();
+    } catch (err) {
+      showAuthError(err.message);
+    }
+  });
+  wrap.querySelector('#passkey-offer-yes').addEventListener('click', async () => {
+    hideAuthError();
+    try {
+      const result = await setUpPasskey();
+      if (result === 'cancelled') return; // they can try again or pick "Not now"
+      finishAuth();
+    } catch (err) {
+      showAuthError(err.message);
+    }
+  });
+  wrap.querySelector('#passkey-offer-no').addEventListener('click', () => {
+    lsSet(passkeyDismissedKey(currentUser.id), String(Date.now()));
+    finishAuth();
+  });
   wrap.addEventListener('click', (e) => { if (e.target === wrap) closeAuthModal(); });
 
   wrap.querySelector('#switch-to-register').addEventListener('click', (e) => {
@@ -585,8 +739,9 @@ function refreshAuthDivider() {
   const divider = document.getElementById('auth-divider');
   const phoneForm = document.getElementById('google-phone-form');
   if (!divider || !phoneForm) return;
-  const choosing = ['google-phone-form', 'forgot-form', 'reset-form', 'pending-panel'].every((id) => document.getElementById(id).style.display === 'none');
-  divider.style.display = (choosing && googleSignInAvailable === true) ? '' : 'none';
+  const choosing = ['google-phone-form', 'forgot-form', 'reset-form', 'pending-panel', 'passkey-offer-panel'].every((id) => document.getElementById(id).style.display === 'none');
+  const passkeyShowing = document.getElementById('passkey-login-section').style.display !== 'none';
+  divider.style.display = (choosing && (googleSignInAvailable === true || passkeyShowing)) ? '' : 'none';
 }
 
 let resetToken = null;
@@ -598,7 +753,8 @@ function showAuthMode(mode) {
   const isForgot = mode === 'forgot';
   const isReset = mode === 'reset';
   const isPending = mode === 'pending';
-  const plain = isForgot || isReset || isPending; // no Google button / "or" divider
+  const isPasskeyOffer = mode === 'passkey-offer';
+  const plain = isForgot || isReset || isPending || isPasskeyOffer; // no Google button / "or" divider
 
   modal.querySelector('#login-form').style.display = !isGooglePhone && !plain && isLogin ? 'block' : 'none';
   modal.querySelector('#register-form').style.display = !isGooglePhone && !plain && !isLogin ? 'block' : 'none';
@@ -606,6 +762,19 @@ function showAuthMode(mode) {
   modal.querySelector('#forgot-form').style.display = isForgot ? 'block' : 'none';
   modal.querySelector('#reset-form').style.display = isReset ? 'block' : 'none';
   modal.querySelector('#pending-panel').style.display = isPending ? 'block' : 'none';
+  modal.querySelector('#passkey-offer-panel').style.display = isPasskeyOffer ? 'block' : 'none';
+  // Fingerprint / Face ID button: on the login screen only, and only on
+  // devices that have it (checked once, then remembered).
+  const passkeySection = modal.querySelector('#passkey-login-section');
+  passkeySection.style.display = (isLogin && passkeySupport === true) ? '' : 'none';
+  if (isLogin && passkeySupport === null) {
+    passkeysSupported().then((ok) => {
+      if (ok && modal.querySelector('#login-form').style.display !== 'none') {
+        passkeySection.style.display = '';
+        refreshAuthDivider();
+      }
+    });
+  }
   // The Google button + divider only make sense while picking how to sign
   // in — not mid-way through finishing a Google sign-up, and not at all if
   // it turned out not to be available (googleSignInAvailable === false).
@@ -616,7 +785,10 @@ function showAuthMode(mode) {
   // sign-in button is actually showing.
   refreshAuthDivider();
 
-  if (isPending) {
+  if (isPasskeyOffer) {
+    modal.querySelector('#auth-modal-title').textContent = 'Use fingerprint / Face ID?';
+    modal.querySelector('#auth-modal-sub').textContent = '';
+  } else if (isPending) {
     modal.querySelector('#auth-modal-title').textContent = 'Thanks for signing up';
     modal.querySelector('#auth-modal-sub').textContent = '';
     modal.querySelector('#pending-message').textContent = pendingApprovalMessage;
@@ -646,7 +818,13 @@ function openAuthModal(mode) {
 
 function closeAuthModal() {
   const modal = document.getElementById('auth-modal');
-  if (modal) modal.classList.remove('open');
+  if (!modal) return;
+  // Closing the fingerprint / Face ID offer still finishes logging in.
+  if (modal.querySelector('#passkey-offer-panel').style.display === 'block' && currentUser) {
+    finishAuth();
+    return;
+  }
+  modal.classList.remove('open');
 }
 
 function showAuthError(msg) {
@@ -672,7 +850,21 @@ function afterSignUp(result) {
 }
 let pendingApprovalMessage = '';
 
-function afterAuthSuccess() {
+// After any login: offer fingerprint / Face ID if this device can do it and
+// it isn't set up here yet (and they haven't said "Not now" recently).
+async function afterAuthSuccess() {
+  if (await shouldOfferPasskey()) {
+    buildAuthModal();
+    showAuthMode('passkey-offer');
+    document.getElementById('auth-modal').classList.add('open');
+    return;
+  }
+  finishAuth();
+}
+
+function finishAuth() {
+  const offer = document.getElementById('passkey-offer-panel');
+  if (offer) offer.style.display = 'none';
   closeAuthModal();
   renderNav();
   // Straight to the home page after logging in, unless they got here via

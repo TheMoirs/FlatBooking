@@ -126,3 +126,18 @@ UPDATE bookings SET baby_cot_required = 'No' WHERE baby_cot_required IS NULL;
 -- Settings. A new account whose email is on the list is approved straight
 -- away instead of waiting for an admin.
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS preauthorised_emails TEXT;
+
+-- Fingerprint / Face ID login (passkeys). Only the public key is stored —
+-- the private key never leaves the person's phone or laptop.
+CREATE TABLE IF NOT EXISTS passkeys (
+  id             SERIAL PRIMARY KEY,
+  user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  credential_id  TEXT NOT NULL UNIQUE,
+  public_key     BYTEA NOT NULL,
+  counter        BIGINT NOT NULL DEFAULT 0,
+  transports     TEXT,
+  device_label   TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_used_at   TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_passkeys_user ON passkeys (user_id);

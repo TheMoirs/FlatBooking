@@ -238,6 +238,7 @@ async function upsertGoogleCalendarEvent({
 // callers use this to decide whether it's safe to forget the stored event id.
 async function deleteGoogleCalendarEvent(eventId) {
   if (!eventId) return true;
+  existsCache.delete(eventId);
   const calendarClient = await getGoogleCalendarClient();
   if (!calendarClient) return false;
 
@@ -268,8 +269,23 @@ async function deleteGoogleCalendarEvent(eventId) {
 // no reliable answer could be had (no credentials configured, or a
 // transient error) — callers should treat null as "don't know" and leave
 // the booking alone rather than risk deleting a live one.
+// A "still there" answer is remembered for a few minutes: the cached feed
+// lags behind brand-new events, and without this every calendar load would
+// re-check each of them with Google, one at a time.
+const EXISTS_TTL_MS = 10 * 60 * 1000;
+const existsCache = new Map(); // eventId -> time confirmed
+
 async function googleCalendarEventStillExists(eventId) {
   if (!eventId) return null;
+  const confirmedAt = existsCache.get(eventId);
+  if (confirmedAt && Date.now() - confirmedAt < EXISTS_TTL_MS) return true;
+  const result = await googleCalendarEventStillExistsLive(eventId);
+  if (result === true) existsCache.set(eventId, Date.now());
+  else existsCache.delete(eventId);
+  return result;
+}
+
+async function googleCalendarEventStillExistsLive(eventId) {
   const calendarClient = await getGoogleCalendarClient();
   if (!calendarClient) return null;
 
@@ -360,6 +376,58 @@ async function fetchExternalBusyRanges(calendarUrl) {
   return ranges;
 }
 
+// The calendar feed is slow to download (often a few seconds), and every
+// calendar on the site needs it. So keep the last copy and serve that
+// straight away, fetching a fresh one in the background once it's more than
+// FEED_TTL_MS old. Only the very first load after the server starts has to
+// wait for Google.
+const FEED_TTL_MS = 2 * 60 * 1000;
+let feedCache = null; // { url, at, ranges }
+let feedInflight = null; // { url, promise }
+
+function refreshFeed(url) {
+  if (feedInflight && feedInflight.url === url) return feedInflight.promise;
+  const promise = fetchExternalBusyRanges(url)
+    .then((ranges) => {
+      feedCache = { url, at: Date.now(), ranges };
+      return ranges;
+    })
+    .finally(() => {
+      if (feedInflight && feedInflight.promise === promise) feedInflight = null;
+    });
+  feedInflight = { url, promise };
+  return promise;
+}
+
+async function getCachedBusyRanges(url) {
+  if (!url) return [];
+  if (feedCache && feedCache.url === url) {
+    if (Date.now() - feedCache.at > FEED_TTL_MS) {
+      refreshFeed(url).catch((err) => console.error('Calendar feed refresh failed:', err.message || err));
+    }
+    return feedCache.ranges;
+  }
+  return refreshFeed(url);
+}
+
+// After a booking changes in the app: the next calendar load triggers a
+// fresh download (and the one after that sees it).
+function markCalendarFeedStale() {
+  if (feedCache) feedCache.at = 0;
+}
+
+// Fetch the feed as soon as the server starts, so the first visitor after
+// Render wakes it up doesn't also wait for Google.
+async function warmCalendarFeed() {
+  try {
+    const r = await query('SELECT google_calendar_url FROM settings WHERE id = 1');
+    const url = r.rows[0] && r.rows[0].google_calendar_url;
+    if (url) await refreshFeed(url);
+  } catch (err) {
+    console.error('Calendar feed warm-up failed:', err.message || err);
+  }
+}
+
 // node-ical builds an all-day ("VALUE=DATE") event's start/end as a Date
 // constructed from local Y/M/D components (it flags these `.dateOnly` and
 // its own internal getDateKey() helper deliberately reads them back with
@@ -398,6 +466,9 @@ function deriveGoogleEventIdFromUid(uid) {
 
 module.exports = {
   fetchExternalBusyRanges,
+  getCachedBusyRanges,
+  markCalendarFeedStale,
+  warmCalendarFeed,
   upsertGoogleCalendarEvent,
   deleteGoogleCalendarEvent,
   deriveGoogleCalendarIdFromUrl,

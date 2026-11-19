@@ -7,9 +7,11 @@ const cookieParser = require('cookie-parser');
 const cors = require('cors');
 
 const authRoutes = require('./src/routes/auth');
+const passkeyRoutes = require('./src/routes/passkeys');
 const bookingRoutes = require('./src/routes/bookings');
 const adminRoutes = require('./src/routes/admin');
 const { pool } = require('./src/db');
+const { warmCalendarFeed } = require('./src/calendarSync');
 
 const app = express();
 
@@ -17,6 +19,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(cors({ origin: true, credentials: true }));
 
+app.use('/api/auth/passkey', passkeyRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api', bookingRoutes);
 app.use('/api/admin', adminRoutes);
@@ -48,5 +51,6 @@ const port = process.env.PORT || 3000;
 applySchema().finally(() => {
   app.listen(port, () => {
     console.log(`Mirador de Calahonda booking site running on port ${port}`);
+    warmCalendarFeed();
   });
 });

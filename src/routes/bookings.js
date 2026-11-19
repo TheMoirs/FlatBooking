@@ -3,7 +3,8 @@ const express = require('express');
 const { query } = require('../db');
 const { attachUser, requireAuth, requireAdmin } = require('../auth');
 const {
-  fetchExternalBusyRanges,
+  getCachedBusyRanges,
+  markCalendarFeedStale,
   upsertGoogleCalendarEvent,
   deleteGoogleCalendarEvent,
   deriveGoogleEventIdFromUid,
@@ -13,6 +14,14 @@ const {
 } = require('../calendarSync');
 
 const router = express.Router();
+
+// Any booking change made through the app (new, edit, cancel, authorise)
+// marks the cached calendar feed as out of date, so it's refreshed on the
+// next calendar load rather than up to two minutes later.
+router.use((req, res, next) => {
+  if (req.method !== 'GET') res.on('finish', markCalendarFeedStale);
+  next();
+});
 
 // end_date is the checkout day. It's treated as blocked, same as every other
 // day of the stay — no same-day turnover — so the availability calendar,
@@ -190,7 +199,7 @@ router.get('/availability', attachUser, requireAuth, async (req, res) => {
   let removedIds = new Set();
   if (calendarUrl) {
     try {
-      const external = await fetchExternalBusyRanges(calendarUrl);
+      const external = await getCachedBusyRanges(calendarUrl);
 
       // If any of these bookings' events were deleted directly in Google
       // Calendar, remove them here too, so a stale booking doesn't keep
@@ -335,7 +344,7 @@ router.get('/bookings', attachUser, requireAuth, async (req, res) => {
   if (calendarUrl) {
     try {
       const [external, activeRanges] = await Promise.all([
-        fetchExternalBusyRanges(calendarUrl),
+        getCachedBusyRanges(calendarUrl),
         query(`SELECT id, start_date, end_date, google_event_id FROM bookings WHERE status <> 'cancelled'`),
       ]);
       const existingRanges = activeRanges.rows;
