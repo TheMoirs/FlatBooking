@@ -893,3 +893,17 @@ section[id]:not(.todo-section) { scroll-margin-top: -48px; }
   .cost-table td:nth-child(2) { margin-top: 2px; }
   .cost-table td:nth-child(3) { margin-top: 4px; font-size: 0.85rem; color: var(--ink-soft); }
 }
+
+/* Guest guides (/opening-up, /closing-down) */
+.guide-page { padding: 28px 24px 64px; max-width: 760px; }
+.guide-sign { display: block; width: 100%; max-width: 360px; border-radius: var(--radius); box-shadow: var(--shadow); margin: 0 0 24px; }
+.guide-body h2 { font-size: 1.5rem; margin: 28px 0 10px; }
+.guide-body p { line-height: 1.65; }
+.guide-body ol { padding-left: 1.4em; margin: 0 0 1em; }
+.guide-body li { line-height: 1.6; margin-bottom: 10px; padding-left: 4px; }
+.guide-body a { color: var(--sea-deep); }
+@media (max-width: 560px) {
+  .guide-page { padding: 20px 16px 48px; }
+  .guide-sign { max-width: 100%; margin-bottom: 18px; }
+}
+.account-menu .page-menu-list { min-width: 250px; }

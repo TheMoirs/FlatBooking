@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Guide — Mirador de Calahonda</title>
+<link rel="stylesheet" href="/css/styles.css" />
+<link rel="icon" href="/favicon.ico" sizes="32x32" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<link rel="manifest" href="/site.webmanifest" />
+<meta name="theme-color" content="#1F5266" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <a class="brand" href="/">
+      <img class="brand-logo" src="/images/casa-moir-logo.jpg" alt="Casa Moir — Mirador de Calahonda" />
+    </a>
+    <nav class="main-nav">
+      <a href="/#about">The Flat</a>
+      <a href="/#costs">Costs</a>
+      <a href="/#gallery">Photos</a>
+      <a href="/things-to-do.html">Things to do</a>
+      <a href="/dashboard.html?tab=new-booking" class="nav-book-now">Book Now</a>
+    </nav>
+    <div class="nav-account" id="nav-account"></div>
+  </div>
+</header>
+
+<div class="todo-page-hero">
+  <div class="container">
+    <h1 id="guide-title">Guide</h1>
+    <p style="color:#D9E4E8;max-width:60ch" id="guide-intro">Only for guests who are logged in.</p>
+  </div>
+</div>
+
+<div class="container guide-page">
+  <img class="guide-sign" src="/images/mirador-sign.jpg" alt="The Mirador de Calahonda sign" />
+  <div class="form-error" id="guide-error"></div>
+  <div id="guide-login-note" style="display:none">
+    <p>These notes are only for family and friends staying at the flat, so please log in to see them.</p>
+    <button class="btn btn-primary" type="button" id="guide-login-btn">Log in</button>
+  </div>
+  <article class="guide-body" id="guide-body"><p style="color:var(--ink-soft)">Loading…</p></article>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div>
+      <img class="brand-logo footer-logo" src="/images/casa-moir-logo.jpg" alt="Casa Moir — Mirador de Calahonda" />
+      <p style="max-width:36ch;color:#AFC2C8">Calahonda, Costa del Sol — halfway between Malaga and Marbella.</p>
+    </div>
+    <nav class="foot-nav">
+      <a href="/#about">The Flat</a>
+      <a href="/#costs">Costs</a>
+      <a href="/#gallery">Photos</a>
+      <a href="/things-to-do.html">Things to do</a>
+      <a href="/dashboard.html?tab=new-booking" class="nav-book-now">Book Now</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="/js/app.js"></script>
+<script>
+  // /opening-up and /closing-down both serve this page; the address says which guide.
+  const slug = window.location.pathname.replace(/^\/|\.html$|\/$/g, '');
+  const INTROS = {
+    'opening-up': 'The address, directions from Malaga airport, and getting settled in.',
+    'closing-down': 'Leaving the flat ready to be left empty, and getting back to the airport.',
+  };
+
+  (async function boot() {
+    const user = await initSession();
+    document.getElementById('guide-intro').textContent = INTROS[slug] || '';
+    if (!user) {
+      document.getElementById('guide-body').innerHTML = '';
+      document.getElementById('guide-login-note').style.display = 'block';
+      document.getElementById('guide-login-btn').addEventListener('click', () => {
+        postAuthRedirect = window.location.pathname;
+        startLogin();
+      });
+      return;
+    }
+    try {
+      const guide = await Api.guide(slug);
+      document.title = `${guide.title} — Mirador de Calahonda`;
+      document.getElementById('guide-title').textContent = guide.title;
+      document.getElementById('guide-body').innerHTML = renderGuide(guide.body)
+        || '<p style="color:var(--ink-soft)">Nothing here yet.</p>';
+    } catch (err) {
+      document.getElementById('guide-body').innerHTML = '';
+      const el = document.getElementById('guide-error');
+      el.textContent = err.message; el.classList.add('show');
+    }
+  })();
+</script>
+</body>
+</html>

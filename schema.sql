@@ -141,3 +141,18 @@ CREATE TABLE IF NOT EXISTS passkeys (
   last_used_at   TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_passkeys_user ON passkeys (user_id);
+
+-- Guest guides shown to logged-in users ("Directions & opening up",
+-- "Closing down & heading home"). The text is kept here rather than in the
+-- code because it includes the address and Wi-Fi password; admins edit it
+-- in Settings.
+CREATE TABLE IF NOT EXISTS guides (
+  slug        TEXT PRIMARY KEY,
+  title       TEXT NOT NULL,
+  body        TEXT NOT NULL DEFAULT '',
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO guides (slug, title) VALUES
+  ('opening-up', 'Directions & opening up'),
+  ('closing-down', 'Closing down & heading home')
+ON CONFLICT (slug) DO NOTHING;

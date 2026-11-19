@@ -276,6 +276,10 @@
         <div class="form-error" id="preauthorised-error"></div>
         <div class="form-ok" id="preauthorised-ok"></div>
         <button class="btn btn-primary" id="save-preauthorised-btn" type="button">Save list</button>
+
+        <h3 style="margin-top:36px">Guest guides</h3>
+        <p style="color:var(--ink-soft)">Shown to logged-in guests from the menu (top right). Start a line with <strong>1.</strong>, <strong>2.</strong> … for numbered steps, and leave a blank line between paragraphs. <strong># Heading</strong> makes a heading, <strong>**bold**</strong> makes bold text, and <strong>[Map](https://…)</strong> makes a link (web addresses on their own become links too).</p>
+        <div id="guides-editors"></div>
       </div>
     </div>
   </div>
@@ -903,7 +907,41 @@
     }
   }
 
+  /* -------- Admin: guest guides -------- */
+  async function loadGuideEditors() {
+    const wrap = document.getElementById('guides-editors');
+    try {
+      const { guides } = await Api.adminGuides();
+      wrap.innerHTML = guides.map((g) => `
+        <div class="field" style="margin-top:20px">
+          <label for="guide-text-${g.slug}">${escapeHtml(g.title)} <a href="/${g.slug}" target="_blank" rel="noopener" style="font-weight:400;margin-left:6px">View page</a></label>
+          <textarea id="guide-text-${g.slug}" rows="14" style="font-size:0.9rem">${escapeHtml(g.body || '')}</textarea>
+        </div>
+        <div class="form-error" id="guide-error-${g.slug}"></div>
+        <div class="form-ok" id="guide-ok-${g.slug}"></div>
+        <button class="btn btn-primary save-guide-btn" type="button" data-slug="${g.slug}">Save ${escapeHtml(g.title)}</button>
+      `).join('');
+      wrap.querySelectorAll('.save-guide-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const slug = btn.dataset.slug;
+          const errEl = document.getElementById('guide-error-' + slug);
+          const okEl = document.getElementById('guide-ok-' + slug);
+          errEl.classList.remove('show'); okEl.classList.remove('show');
+          try {
+            await Api.saveAdminGuide(slug, document.getElementById('guide-text-' + slug).value);
+            okEl.textContent = 'Saved.'; okEl.classList.add('show');
+          } catch (e) {
+            errEl.textContent = e.message; errEl.classList.add('show');
+          }
+        });
+      });
+    } catch (e) {
+      wrap.innerHTML = `<div class="form-error show">${escapeHtml(e.message)}</div>`;
+    }
+  }
+
   async function loadSettings() {
+    loadGuideEditors();
     const { settings } = await Api.adminSettings();
     document.getElementById('gcal-url').value = (settings && settings.google_calendar_url) || '';
     document.getElementById('daily-rate').value = (settings && settings.daily_rate != null) ? settings.daily_rate : '';

@@ -116,6 +116,21 @@ const Api = {
     }
     return data;
   },
+  async guide(slug) {
+    const r = await fetch(`/api/guides/${encodeURIComponent(slug)}`, { credentials: 'include' });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'Unable to load this guide.');
+    return data;
+  },
+  async adminGuides() {
+    const r = await fetch('/api/admin/guides', { credentials: 'include' });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'Unable to load the guides.');
+    return data;
+  },
+  async saveAdminGuide(slug, body) {
+    return Api._send(`/api/admin/guides/${encodeURIComponent(slug)}`, { body }, 'PUT');
+  },
   async _send(url, payload, method = 'POST') {
     const r = await fetch(url, {
       method,
@@ -152,6 +167,9 @@ function renderNav() {
           <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="2" rx="1" fill="currentColor"/><rect x="3" y="9" width="14" height="2" rx="1" fill="currentColor"/><rect x="3" y="14" width="14" height="2" rx="1" fill="currentColor"/></svg>
         </button>
         <div class="page-menu-list" id="account-menu-list" role="menu" hidden>
+          <button type="button" role="menuitem" data-href="/opening-up">Directions &amp; opening up</button>
+          <button type="button" role="menuitem" data-href="/closing-down">Closing down &amp; heading home</button>
+          <hr class="page-menu-sep" />
           ${currentUser.role === 'admin' ? `
           <button type="button" role="menuitem" data-dash-tab="users">Users</button>
           <button type="button" role="menuitem" data-dash-tab="settings">Settings</button>
@@ -185,6 +203,9 @@ function renderNav() {
     // Users and Settings live in this menu rather than the dashboard's tab
     // bar. On the dashboard they switch panel in place; elsewhere they open
     // the dashboard on that panel.
+    menuList.querySelectorAll('[data-href]').forEach((btn) => {
+      btn.addEventListener('click', () => { window.location.href = btn.dataset.href; });
+    });
     menuList.querySelectorAll('[data-dash-tab]').forEach((btn) => {
       btn.addEventListener('click', () => {
         setMenu(false);
@@ -247,6 +268,46 @@ function onBookNowClick(intent) {
     // anyone who doesn't.
     startLogin();
   }
+}
+
+// Turns a guide's plain text (as typed in admin Settings) into HTML:
+//   blank line        → new paragraph (single line breaks are kept)
+//   "1. " / "1) "     → numbered step; following lines continue the step
+//   "# Heading"       → heading
+//   **bold**, [text](https://…), bare https://… → bold / links
+// Everything is escaped first, so nothing typed can become live HTML.
+function renderGuide(text) {
+  const inline = (t) => escapeHtml(t)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)"'<>]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)"'>]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  const html = [];
+  let para = [];
+  let list = null; // { start, items: [] }
+  const flushPara = () => { if (para.length) html.push(`<p>${para.map(inline).join('<br>')}</p>`); para = []; };
+  const flushList = () => {
+    if (list) html.push(`<ol${list.start !== 1 ? ` start="${list.start}"` : ''}>${list.items.map((i) => `<li>${inline(i)}</li>`).join('')}</ol>`);
+    list = null;
+  };
+  String(text || '').replace(/\r/g, '').split('\n').forEach((raw) => {
+    const line = raw.trim();
+    const step = line.match(/^(\d+)[.)]\s+(.*)$/);
+    if (!line) { flushPara(); if (list) list.gap = true; return; }
+    if (line.startsWith('# ')) { flushPara(); flushList(); html.push(`<h2>${inline(line.slice(2))}</h2>`); return; }
+    if (step) {
+      flushPara();
+      if (!list) list = { start: Number(step[1]), items: [] };
+      list.items.push(step[2]);
+      list.gap = false;
+      return;
+    }
+    if (list && !list.gap) { list.items[list.items.length - 1] += ' ' + line; return; }
+    flushList();
+    para.push(line);
+  });
+  flushPara();
+  flushList();
+  return html.join('\n');
 }
 
 function escapeHtml(str) {

@@ -8,6 +8,7 @@ const cors = require('cors');
 
 const authRoutes = require('./src/routes/auth');
 const passkeyRoutes = require('./src/routes/passkeys');
+const guideRoutes = require('./src/routes/guides');
 const bookingRoutes = require('./src/routes/bookings');
 const adminRoutes = require('./src/routes/admin');
 const { pool } = require('./src/db');
@@ -21,8 +22,14 @@ app.use(cors({ origin: true, credentials: true }));
 
 app.use('/api/auth/passkey', passkeyRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api', guideRoutes);
 app.use('/api', bookingRoutes);
 app.use('/api/admin', adminRoutes);
+
+// The two guest guides share one page; it fetches the right text itself.
+app.get(['/opening-up', '/closing-down'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'guide.html'));
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 
