@@ -880,3 +880,16 @@ section.tight { padding: 48px 0; }
    padding under the header, so the heading sits just below it rather than
    after a big gap (with a strip of the section above showing). */
 section[id]:not(.todo-section) { scroll-margin-top: -48px; }
+
+/* Phones: three table columns don't fit, so each charge becomes its own
+   block — name, amount, then what it covers. */
+@media (max-width: 560px) {
+  .cost-table, .cost-table tbody, .cost-table tr, .cost-table td { display: block; width: 100%; }
+  .cost-table thead { display: none; }
+  .cost-table tr { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .cost-table tr:last-child { border-bottom: none; }
+  .cost-table td { padding: 0; border-bottom: none; }
+  .cost-table td:nth-child(1) { font-weight: 600; color: var(--sea-deep); }
+  .cost-table td:nth-child(2) { margin-top: 2px; }
+  .cost-table td:nth-child(3) { margin-top: 4px; font-size: 0.85rem; color: var(--ink-soft); }
+}
