@@ -186,7 +186,7 @@
         <h2 style="margin:0">All bookings</h2>
         <a class="btn btn-ghost btn-small" id="agent-bookings-btn" href="#" target="_blank" rel="noopener">Agent Bookings</a>
       </div>
-      <p style="color:var(--ink-soft)">Authorise a provisional booking once you're happy to confirm it, or cancel one that shouldn't go ahead. Click a booking for its full details.</p>
+      <p style="color:var(--ink-soft)">Confirm a provisional booking once you're happy with it, or cancel one that shouldn't go ahead. Click a booking for its full details.</p>
       <div class="view-toggle" role="group" aria-label="Show bookings as">
         <button type="button" data-bookings-view="all:list" aria-pressed="true">List</button>
         <button type="button" data-bookings-view="all:calendar" aria-pressed="false">Calendar</button>
@@ -297,7 +297,7 @@
     <div id="details-modal-actions" style="display:none;margin-top:18px">
       <div class="form-error" id="details-authorise-error"></div>
       <div class="form-ok" id="details-authorise-ok"></div>
-      <button class="btn btn-primary" type="button" id="details-authorise-btn" style="width:100%;justify-content:center">Authorise</button>
+      <button class="btn btn-primary" type="button" id="details-authorise-btn" style="width:100%;justify-content:center">Confirm</button>
       <button class="btn btn-ghost" type="button" id="details-back-btn" style="width:100%;justify-content:center;margin-top:8px">Back to calendar</button>
     </div>
   </div>
@@ -339,7 +339,7 @@
     <button class="close-x" id="edit-modal-close" aria-label="Close">&times;</button>
     <h3 id="edit-modal-title">Edit booking</h3>
     <div class="action-row" id="edit-admin-actions" style="display:none;margin:4px 0 16px">
-      <button class="btn btn-primary" type="button" id="edit-authorise-btn">Authorise</button>
+      <button class="btn btn-primary" type="button" id="edit-authorise-btn">Confirm</button>
       <button class="btn btn-ghost" type="button" id="edit-delete-btn">Delete</button>
     </div>
     <p class="sub">Pick a check-in date, then a check-out date, to change the dates — or leave them as they are.</p>
@@ -789,7 +789,7 @@
     note.className = 'form-ok show';
     note.textContent = b.status === 'confirmed'
       ? `${who}, ${when}: confirmed.`
-      : `New request: ${who}, ${when}. Tap it on the calendar to view and authorise.`;
+      : `New request: ${who}, ${when}. Tap it on the calendar to view and confirm.`;
   }
 
   async function loadBookingsCalendar(key) {
@@ -936,8 +936,8 @@
           ${sourceBadge(b)}
           ${statusPill(b.status)}
           ${isAdminUser() && isEditable(b) ? (b.status === 'confirmed'
-            ? `<button class="btn btn-ghost btn-small unauthorise-btn" data-id="${b.id}">Un-Authorise</button>`
-            : `<button class="btn btn-primary btn-small authorise-btn" data-id="${b.id}">Authorise</button>`) : ''}
+            ? `<button class="btn btn-ghost btn-small unauthorise-btn" data-id="${b.id}">Un-confirm</button>`
+            : `<button class="btn btn-primary btn-small authorise-btn" data-id="${b.id}">Confirm</button>`) : ''}
           ${isEditable(b) ? `<button class="btn btn-ghost btn-small edit-btn" data-id="${b.id}">Edit</button>` : ''}
           ${isEditable(b) ? `<button class="btn btn-ghost btn-small cancel-btn" data-id="${b.id}">Delete</button>` : ''}
         </div>
@@ -1011,8 +1011,8 @@
           ${sourceBadge(b)}
           ${statusPill(b.status)}
           ${isEditable(b) ? (b.status === 'confirmed'
-            ? `<button class="btn btn-ghost btn-small unauthorise-btn" data-id="${b.id}">Un-Authorise</button>`
-            : `<button class="btn btn-primary btn-small authorise-btn" data-id="${b.id}">Authorise</button>`) : ''}
+            ? `<button class="btn btn-ghost btn-small unauthorise-btn" data-id="${b.id}">Un-confirm</button>`
+            : `<button class="btn btn-primary btn-small authorise-btn" data-id="${b.id}">Confirm</button>`) : ''}
           ${isEditable(b) ? `<button class="btn btn-ghost btn-small edit-btn" data-id="${b.id}">Edit</button>` : ''}
           ${isEditable(b) ? `<button class="btn btn-ghost btn-small cancel-btn" data-id="${b.id}">Delete</button>` : ''}
         </div>
@@ -1517,11 +1517,11 @@
       if (result && result.google_calendar_updated) {
         msg = 'Booking requested and the shared Google Calendar was updated successfully.';
       } else if (result && result.google_calendar_warning) {
-        msg = 'Booking requested — it will show as provisional until an admin authorises it.';
+        msg = 'Booking requested — it will show as provisional until an admin confirms it.';
         errEl.textContent = result.google_calendar_warning;
         errEl.classList.add('show');
       } else {
-        msg = 'Booking requested — it will show as provisional until an admin authorises it.';
+        msg = 'Booking requested — it will show as provisional until an admin confirms it.';
       }
       okEl.textContent = msg;
       okEl.classList.add('show');
@@ -1565,7 +1565,7 @@
     if (isAdmin) {
       const authBtn = document.getElementById('edit-authorise-btn');
       const confirmed = booking.status === 'confirmed';
-      authBtn.textContent = confirmed ? 'Un-authorise' : 'Authorise';
+      authBtn.textContent = confirmed ? 'Un-confirm' : 'Confirm';
       authBtn.className = `btn ${confirmed ? 'btn-ghost' : 'btn-primary'}`;
     }
     editCal.start = booking.start_date;

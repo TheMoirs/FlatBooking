@@ -90,7 +90,7 @@ async function sendBookingRequestedEmails(req, bookingId) {
           `${b.booker_name} has requested a stay at the flat.\n\n` +
           `${details}\n\n` +
           `Booked by: ${b.booker_name}\nEmail: ${b.booker_email}\nPhone: ${b.booker_phone || '—'}\n\n` +
-          `To authorise it, open the booking here and tap Authorise:\n${authoriseLink(base, b)}`,
+          `To confirm it, open the booking here and tap Confirm:\n${authoriseLink(base, b)}`,
       });
     } catch (err) {
       console.error(`Could not send the new-booking email to ${admin.email}:`, err.message);
