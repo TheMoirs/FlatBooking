@@ -465,6 +465,7 @@ function deriveGoogleEventIdFromUid(uid) {
 }
 
 module.exports = {
+  fmtDateHuman,
   fetchExternalBusyRanges,
   getCachedBusyRanges,
   markCalendarFeedStale,

@@ -13,6 +13,8 @@ const {
   getCostsLine,
 } = require('../calendarSync');
 
+const { sendBookingRequestedEmails, sendBookingConfirmedEmail, inBackground } = require('../bookingEmails');
+
 const router = express.Router();
 
 // Any booking change made through the app (new, edit, cancel, authorise)
@@ -559,6 +561,9 @@ router.post('/bookings', attachUser, requireAuth, async (req, res) => {
     google_calendar_updated: googleCalendarUpdated,
     google_calendar_warning: googleCalendarUpdated ? null : 'Booking saved, but Google Calendar update was blocked. Add the service account as an Editor on the shared calendar.',
   });
+
+  // Details + edit link to the booker; details + authorise link to Ali & Dawn.
+  inBackground('Booking request emails', () => sendBookingRequestedEmails(req, booking.id));
 });
 
 // POST /api/bookings/:id/authorise — admin confirms a provisional booking.
@@ -597,6 +602,12 @@ router.post('/bookings/:id/authorise', attachUser, requireAdmin, async (req, res
   }
 
   res.json({ booking: result.rows[0] });
+
+  // Only when it actually changes to confirmed (not re-authorising one that
+  // already was).
+  if (row.status !== 'confirmed') {
+    inBackground('Booking confirmed email', () => sendBookingConfirmedEmail(req, row.id));
+  }
 });
 
 // POST /api/bookings/:id/unauthorise — admin reverts a confirmed booking

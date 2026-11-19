@@ -38,6 +38,9 @@
 
 <div class="container guide-page">
   <img class="guide-sign" src="/images/mirador-sign.jpg" alt="The Mirador de Calahonda sign" />
+  <div class="guide-actions" id="guide-actions" style="display:none">
+    <a class="btn btn-secondary" id="guide-pdf-btn" href="#" target="_blank" rel="noopener">Print / save as PDF</a>
+  </div>
   <div class="form-error" id="guide-error"></div>
   <div id="guide-login-note" style="display:none">
     <p>These notes are only for family and friends staying at the flat, so please log in to see them.</p>
@@ -89,6 +92,10 @@
       document.getElementById('guide-title').textContent = guide.title;
       document.getElementById('guide-body').innerHTML = renderGuide(guide.body)
         || '<p style="color:var(--ink-soft)">Nothing here yet.</p>';
+      if (guide.body) {
+        document.getElementById('guide-pdf-btn').href = `/api/guides/${encodeURIComponent(slug)}/pdf`;
+        document.getElementById('guide-actions').style.display = '';
+      }
     } catch (err) {
       document.getElementById('guide-body').innerHTML = '';
       const el = document.getElementById('guide-error');

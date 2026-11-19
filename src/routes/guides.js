@@ -5,6 +5,7 @@
 const express = require('express');
 const { query } = require('../db');
 const { attachUser, requireAuth, requireAdmin } = require('../auth');
+const { buildGuidePdf } = require('../guidePdf');
 
 const router = express.Router();
 
@@ -14,6 +15,17 @@ router.get('/guides/:slug', attachUser, requireAuth, async (req, res) => {
   const r = await query('SELECT slug, title, body, updated_at FROM guides WHERE slug = $1', [req.params.slug]);
   if (!r.rows[0]) return res.status(404).json({ error: "That guide doesn't exist." });
   res.json(r.rows[0]);
+});
+
+// The "Print / save as PDF" button on the guide page.
+router.get('/guides/:slug/pdf', attachUser, requireAuth, async (req, res) => {
+  const r = await query('SELECT title, body FROM guides WHERE slug = $1', [req.params.slug]);
+  if (!r.rows[0]) return res.status(404).json({ error: "That guide doesn't exist." });
+  const { title, body } = r.rows[0];
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="Casa Moir - ${title.replace(/[^\w &-]/g, '')}.pdf"`);
+  res.setHeader('Cache-Control', 'private, no-store');
+  buildGuidePdf({ title, body }).pipe(res);
 });
 
 router.get('/admin/guides', attachUser, requireAdmin, async (req, res) => {

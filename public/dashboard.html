@@ -779,6 +779,22 @@
     applyBookingsView(key);
   });
 
+  // Booking emails link to ?tab=…&booking=<id>: once that tab's list has
+  // loaded, pick the booking out and open it (the edit popup, which for
+  // admins has the Authorise button) — only once per page load.
+  let requestedBookingHandled = false;
+  function openRequestedBooking(bookings, listId, reloadFn) {
+    if (requestedBookingHandled) return;
+    requestedBookingHandled = true;
+    const id = new URLSearchParams(window.location.search).get('booking');
+    const booking = id && bookings.find((b) => String(b.id) === id);
+    if (!booking) return;
+    const row = document.querySelector(`#${listId} .booking-row[data-id="${CSS.escape(id)}"]`);
+    if (row) { row.classList.add('highlight'); row.scrollIntoView({ block: 'center' }); }
+    if (isEditable(booking)) openEditModal(booking, reloadFn);
+    else openDetailsModal(booking);
+  }
+
   async function loadMyBookings() {
     applyBookingsView('my');
     if (bookingsView.my === 'calendar') loadBookingsCalendar('my');
@@ -824,6 +840,7 @@
     list.querySelectorAll('.edit-btn').forEach((btn) => {
       btn.addEventListener('click', () => openEditModal(bookings.find((b) => String(b.id) === btn.dataset.id), () => loadMyBookings()));
     });
+    openRequestedBooking(bookings, 'my-bookings-list', () => loadMyBookings());
     list.querySelectorAll('.cancel-btn').forEach((btn) => {
       btn.addEventListener('click', () => confirmAndCancel(btn.dataset.id, () => loadMyBookings(), 'Delete'));
     });
@@ -897,6 +914,7 @@
     list.querySelectorAll('.edit-btn').forEach((btn) => {
       btn.addEventListener('click', () => openEditModal(bookings.find((b) => String(b.id) === btn.dataset.id), () => loadAllBookings()));
     });
+    openRequestedBooking(bookings, 'all-bookings-list', () => loadAllBookings());
     list.querySelectorAll('.cancel-btn').forEach((btn) => {
       btn.addEventListener('click', () => confirmAndCancel(btn.dataset.id, () => loadAllBookings(), 'Delete'));
     });

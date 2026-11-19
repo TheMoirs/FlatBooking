@@ -907,3 +907,5 @@ section[id]:not(.todo-section) { scroll-margin-top: -48px; }
   .guide-sign { max-width: 100%; margin-bottom: 18px; }
 }
 .account-menu .page-menu-list { min-width: 250px; }
+.guide-actions { margin: 0 0 20px; }
+@media print { .site-header, .site-footer, .guide-actions { display: none; } }
