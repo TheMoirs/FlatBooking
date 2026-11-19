@@ -38,7 +38,8 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   scroll-behavior: smooth;
-  scroll-padding-top: 88px;
+  /* --header-h is the sticky header's real height, measured in app.js. */
+  scroll-padding-top: var(--header-h, 88px);
 }
 
 body {
@@ -564,7 +565,7 @@ section.tight { padding: 48px 0; }
    on a dark bar, not a blur over light page content. */
 .todo-jump-bar {
   position: sticky;
-  top: 75px;
+  top: var(--header-h, 75px);
   z-index: 35;
   background: var(--sea-deep);
   border-bottom: 1px solid rgba(255,255,255,0.15);
@@ -582,7 +583,7 @@ section.tight { padding: 48px 0; }
 
 /* Overrides the generic `section { padding: 72px 0 }` — that plus the old
    56px margin left huge gaps between the main sections of this long list. */
-.todo-section { padding: 0; margin-bottom: 28px; scroll-margin-top: 155px; } /* clear the sticky header + jump bar */
+.todo-section { padding: 0; margin-bottom: 28px; scroll-margin-top: calc(var(--jump-h, 67px) + 16px); } /* clear the jump bar (the header is covered by scroll-padding-top) */
 .todo-group { margin-bottom: 20px; }
 .todo-group h4 { color: var(--terracotta); font-family: var(--sans); font-weight: 700; font-size: 1.2rem; margin-bottom: 8px; }
 .todo-items { list-style: none; margin: 0; padding: 0; }
@@ -798,14 +799,12 @@ section.tight { padding: 48px 0; }
    mobile), so the jump bar's sticky offset and the anchor scroll margin
    track it. */
 @media (max-width: 860px) {
-  .todo-jump-bar { top: 105px; }
-  .todo-section { scroll-margin-top: 185px; }
+  .todo-jump-bar { top: var(--header-h, 105px); }
 }
 @media (max-width: 560px) {
-  .todo-jump-bar { top: 93px; }
+  .todo-jump-bar { top: var(--header-h, 93px); }
   .todo-jump { gap: 6px; padding: 8px 0; }
   .todo-jump a { padding: 5px 11px; font-size: 0.8rem; }
-  .todo-section { scroll-margin-top: 150px; }
 }
 
 /* Request a stay: fields left unfilled when saving are flagged. */
@@ -876,3 +875,8 @@ section.tight { padding: 48px 0; }
   .site-header .inner { padding: 6px 16px; row-gap: 4px; }
   .main-nav { padding-top: 4px; }
 }
+
+/* Jumping to The Flat / Costs / Photos: tuck most of the section's 72px top
+   padding under the header, so the heading sits just below it rather than
+   after a big gap (with a strip of the section above showing). */
+section[id]:not(.todo-section) { scroll-margin-top: -48px; }

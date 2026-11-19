@@ -737,7 +737,29 @@ function initMobileNav() {
   });
 }
 
+// Keep --header-h (and --jump-h on Things to do) matching the sticky bars'
+// real heights, which change with screen width and the account buttons —
+// anchor jumps and the jump bar's position are worked out from them.
+function trackStickyHeights() {
+  const root = document.documentElement;
+  const header = document.querySelector('.site-header');
+  const jump = document.querySelector('.todo-jump-bar');
+  const update = () => {
+    if (header) root.style.setProperty('--header-h', header.offsetHeight + 'px');
+    if (jump) root.style.setProperty('--jump-h', jump.offsetHeight + 'px');
+  };
+  update();
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(update);
+    if (header) ro.observe(header);
+    if (jump) ro.observe(jump);
+  } else {
+    window.addEventListener('resize', update);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  trackStickyHeights();
   const params = new URLSearchParams(location.search);
   if (params.get('reset')) {
     resetToken = params.get('reset');
