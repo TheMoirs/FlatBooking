@@ -860,3 +860,19 @@ section.tight { padding: 48px 0; }
 @media (max-width: 560px) {
   .account-menu .page-menu-btn { width: 36px; height: 36px; }
 }
+
+/* Phones: a tighter calendar card (smaller headings, flatter date squares)
+   so both months fit on screen at once. */
+@media (max-width: 560px) {
+  .calendar-card { padding: 12px 10px; }
+  .calendar-toolbar { margin-bottom: 8px; gap: 8px; }
+  .calendar-toolbar h3 { font-size: 1rem; line-height: 1.25; }
+  .calendar-months { gap: 10px; }
+  .cal-month-label { font-size: 0.95rem; margin-bottom: 4px; }
+  .cal-grid { gap: 3px; }
+  .cal-grid .dow { padding-bottom: 0; }
+  .cal-grid .day { aspect-ratio: 1.3; padding: 2px 1px; }
+  .calendar-legend { margin-top: 8px; gap: 12px; font-size: 0.8rem; }
+  .site-header .inner { padding: 6px 16px; row-gap: 4px; }
+  .main-nav { padding-top: 4px; }
+}

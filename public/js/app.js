@@ -147,7 +147,6 @@ function renderNav() {
   if (currentUser) {
     slot.innerHTML = `
       <span style="font-size:0.9rem;color:var(--ink-soft)">Hi, ${escapeHtml(currentUser.name.split(' ')[0])}</span>
-      <a class="btn btn-ghost btn-small" id="nav-bookings-link" href="/dashboard.html">${currentUser.role === 'admin' ? 'Admin' : 'Bookings'}</a>
       <div class="page-menu account-menu">
         <button type="button" class="page-menu-btn" id="account-menu-btn" aria-label="Account menu" aria-haspopup="true" aria-expanded="false">
           <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="2" rx="1" fill="currentColor"/><rect x="3" y="9" width="14" height="2" rx="1" fill="currentColor"/><rect x="3" y="14" width="14" height="2" rx="1" fill="currentColor"/></svg>
@@ -203,12 +202,25 @@ function renderNav() {
   } else {
     slot.innerHTML = `
       <button class="btn btn-ghost btn-small" id="nav-login-btn">Log in</button>
-      <button class="btn btn-primary btn-small" id="nav-book-btn">Book Now</button>
     `;
     document.getElementById('nav-login-btn').addEventListener('click', () => openAuthModal('login'));
-    document.getElementById('nav-book-btn').addEventListener('click', () => onBookNowClick());
   }
 }
+
+// The "Book Now" nav link opens My account → Request a stay. Anyone not
+// logged in gets the login popup first, then lands there.
+document.addEventListener('click', (e) => {
+  const link = e.target.closest('a.nav-book-now');
+  if (!link) return;
+  if (currentUser) {
+    // Already on the dashboard: just switch tab.
+    if (typeof window.dashShowTab === 'function') { e.preventDefault(); window.dashShowTab('new-booking'); }
+    return;
+  }
+  e.preventDefault();
+  postAuthRedirect = link.getAttribute('href');
+  openAuthModal('login');
+});
 
 function onBookNowClick(intent) {
   if (currentUser) {
