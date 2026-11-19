@@ -216,7 +216,9 @@ function renderNav() {
     slot.innerHTML = `
       <button class="btn btn-ghost btn-small" id="nav-login-btn">Log in</button>
     `;
-    document.getElementById('nav-login-btn').addEventListener('click', () => openAuthModal('login'));
+    document.getElementById('nav-login-btn').addEventListener('click', () => startLogin());
+    // Get the fingerprint login ready, so tapping "Log in" can go straight to it.
+    passkeysSupported().then(() => { if (passkeyLoginAvailable()) preparePasskeyLogin(); });
   }
 }
 
@@ -232,7 +234,7 @@ document.addEventListener('click', (e) => {
   }
   e.preventDefault();
   postAuthRedirect = link.getAttribute('href');
-  openAuthModal('login');
+  startLogin();
 });
 
 function onBookNowClick(intent) {
@@ -243,7 +245,7 @@ function onBookNowClick(intent) {
     // Defaults to the login form — most people clicking "Book Now" already
     // have an account. The form itself has a "Create an account" link for
     // anyone who doesn't.
-    openAuthModal('login');
+    startLogin();
   }
 }
 
@@ -322,9 +324,12 @@ const passkeyDismissedKey = (userId) => `casamoir-passkey-dismissed-${userId}`;
 // anyone. The login popup only offers it on devices like that — elsewhere
 // the phone would just say "No passkeys available".
 const PASSKEY_DEVICE_KEY = 'casamoir-passkey-device';
-function rememberPasskeyOnDevice(userId) {
+// Which passkey this device holds, so login can ask for it by name.
+const PASSKEY_CRED_KEY = 'casamoir-passkey-credential';
+function rememberPasskeyOnDevice(userId, credentialId) {
   lsSet(passkeySetKey(userId), '1');
   lsSet(PASSKEY_DEVICE_KEY, '1');
+  if (credentialId) lsSet(PASSKEY_CRED_KEY, credentialId);
 }
 function passkeyLoginAvailable() {
   return passkeySupport === true && Boolean(lsGet(PASSKEY_DEVICE_KEY));
@@ -383,15 +388,37 @@ async function setUpPasskey() {
     if (err && err.name === 'NotAllowedError') return 'cancelled';
     throw err;
   }
-  await Api._send('/api/auth/passkey/register/verify', attestation);
-  rememberPasskeyOnDevice(currentUser.id);
+  const saved = await Api._send('/api/auth/passkey/register/verify', attestation);
+  rememberPasskeyOnDevice(currentUser.id, saved.credentialId || attestation.id);
   return 'done';
 }
 
 // Returns the logged-in user, or null if they cancelled the prompt.
+// The login options are fetched ahead of time (see preparePasskeyLogin) so
+// that tapping "Log in" can open the fingerprint prompt straight away —
+// some browsers (Safari) only allow that right after a tap.
+let preparedLogin = null; // { at, promise }
+const PREPARED_LOGIN_TTL_MS = 4 * 60 * 1000; // the server allows 5 minutes
+function fetchPasskeyLoginOptions() {
+  return Api._send('/api/auth/passkey/login/options', { credentialId: lsGet(PASSKEY_CRED_KEY) || undefined });
+}
+function preparePasskeyLogin() {
+  if (preparedLogin && Date.now() - preparedLogin.at < PREPARED_LOGIN_TTL_MS) return;
+  const promise = fetchPasskeyLoginOptions();
+  promise.catch(() => { preparedLogin = null; });
+  preparedLogin = { at: Date.now(), promise };
+  loadWebAuthnLib().catch(() => {});
+}
+
 async function loginWithPasskey() {
   const lib = await loadWebAuthnLib();
-  const options = await Api._send('/api/auth/passkey/login/options', {});
+  let options;
+  if (preparedLogin && Date.now() - preparedLogin.at < PREPARED_LOGIN_TTL_MS) {
+    options = await preparedLogin.promise;
+  } else {
+    options = await fetchPasskeyLoginOptions();
+  }
+  preparedLogin = null; // each challenge works once
   let assertion;
   try {
     assertion = await lib.startAuthentication({ optionsJSON: options });
@@ -400,7 +427,7 @@ async function loginWithPasskey() {
     throw err;
   }
   const { user } = await Api._send('/api/auth/passkey/login/verify', assertion);
-  rememberPasskeyOnDevice(user.id);
+  rememberPasskeyOnDevice(user.id, assertion.id);
   return user;
 }
 
@@ -819,6 +846,27 @@ function showAuthMode(mode) {
       : "The flat is only for family and friends, so once you've signed up Ali will check and approve your account before you can book.";
   }
   hideAuthError();
+}
+
+// "Log in" / "Book Now" while logged out: on a device where fingerprint /
+// Face ID is set up, go straight to that prompt; cancelling it (or any
+// problem) falls back to the normal login popup.
+async function startLogin() {
+  if (passkeyLoginAvailable()) {
+    try {
+      const user = await loginWithPasskey();
+      if (user) {
+        currentUser = user;
+        afterAuthSuccess();
+        return;
+      }
+    } catch (err) {
+      openAuthModal('login');
+      showAuthError(err.message);
+      return;
+    }
+  }
+  openAuthModal('login');
 }
 
 function openAuthModal(mode) {

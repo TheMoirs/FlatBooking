@@ -1734,7 +1734,7 @@
       document.getElementById('signed-out-login-btn').addEventListener('click', () => {
         // Come back to this exact page (e.g. the Users tab from an approval email).
         postAuthRedirect = window.location.pathname + window.location.search;
-        openAuthModal('login');
+        startLogin();
       });
       return;
     }

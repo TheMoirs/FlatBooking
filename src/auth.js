@@ -3,7 +3,8 @@ const jwt = require('jsonwebtoken');
 const { query } = require('./db');
 
 const COOKIE_NAME = 'mirador_session';
-const SEVEN_DAYS = 60 * 60 * 24 * 7;
+// How long a login lasts before asking again.
+const SESSION_LENGTH = 60 * 60 * 24 * 90; // 90 days
 
 // These two are always admins, on top of anything set in the ADMIN_EMAILS
 // environment variable (comma-separated) on the server.
@@ -34,7 +35,7 @@ function signSession(user) {
   return jwt.sign(
     { id: user.id, email: user.email, role: user.role, name: user.name },
     process.env.JWT_SECRET,
-    { expiresIn: SEVEN_DAYS }
+    { expiresIn: SESSION_LENGTH }
   );
 }
 
@@ -97,7 +98,7 @@ function setSessionCookie(res, user) {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
-    maxAge: SEVEN_DAYS * 1000,
+    maxAge: SESSION_LENGTH * 1000,
   });
 }
 

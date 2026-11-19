@@ -128,14 +128,29 @@ router.post('/register/verify', attachUser, requireAuth, async (req, res) => {
       deviceLabel(req),
     ]
   );
-  res.json({ ok: true });
+  res.json({ ok: true, credentialId: credential.id });
 });
 
 router.post('/login/options', async (req, res) => {
-  // No email needed: the device offers whichever passkeys it holds for this site.
+  // No email needed: the device offers whichever passkeys it holds for this
+  // site. If the phone says which one it set up here, ask for that one by
+  // name — many phones then go straight to the fingerprint scanner instead
+  // of first asking "Use saved passkey?".
+  let allowCredentials;
+  const wanted = req.body && req.body.credentialId;
+  if (wanted) {
+    const r = await query('SELECT credential_id, transports FROM passkeys WHERE credential_id = $1', [String(wanted)]);
+    if (r.rows[0]) {
+      allowCredentials = [{
+        id: r.rows[0].credential_id,
+        transports: r.rows[0].transports ? r.rows[0].transports.split(',') : ['internal', 'hybrid'],
+      }];
+    }
+  }
   const options = await generateAuthenticationOptions({
     rpID: rpIdFor(req),
     userVerification: 'required',
+    allowCredentials,
   });
   setChallenge(res, 'login', options.challenge);
   res.json(options);
