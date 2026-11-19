@@ -51,7 +51,7 @@
     <div class="dash-panel" id="panel-new-booking">
       <h2>Request a stay</h2>
       <p>Pick a check-in date, then a check-out date from the available (unshaded) days. Your booking is created as <strong>provisional</strong> until Ali or Dawn confirms it.</p>
-      <p style="color:var(--ink-soft)">Please try to allow at least one day in between your booking &amp; someone else's, to allow for cleaning &amp; laundry to be done.</p>
+      <p style="color:var(--ink-soft)"><strong>Please try to allow at least one day in between your booking &amp; someone else's, to allow for cleaning &amp; laundry to be done.</strong></p>
       <div class="calendar-card" style="max-width:760px">
         <div class="calendar-toolbar">
           <h3 id="booking-cal-label">Loading…</h3>
@@ -298,6 +298,7 @@
       <div class="form-error" id="details-authorise-error"></div>
       <div class="form-ok" id="details-authorise-ok"></div>
       <button class="btn btn-primary" type="button" id="details-authorise-btn" style="width:100%;justify-content:center">Authorise</button>
+      <button class="btn btn-ghost" type="button" id="details-back-btn" style="width:100%;justify-content:center;margin-top:8px">Back to calendar</button>
     </div>
   </div>
 </div>
@@ -695,6 +696,7 @@
     document.getElementById('details-modal').classList.remove('open');
   }
   document.getElementById('details-modal-close').addEventListener('click', closeDetailsModal);
+  document.getElementById('details-back-btn').addEventListener('click', closeDetailsModal);
   document.getElementById('details-modal').addEventListener('click', (e) => {
     if (e.target === document.getElementById('details-modal')) closeDetailsModal();
   });
@@ -716,6 +718,18 @@
     const saved = JSON.parse(localStorage.getItem('bookingsView') || '{}');
     ['my', 'all'].forEach((k) => { if (saved[k] === 'calendar') bookingsView[k] = 'calendar'; });
   } catch (e) { /* storage unavailable — default to lists */ }
+  // What's actually saved — kept separately so the calendar view forced by
+  // an authorise link (below) isn't saved as the admin's own choice.
+  const savedBookingsView = { ...bookingsView };
+
+  // The admin "new booking request" email links to
+  // ?tab=all-bookings&booking=<id>: show All bookings as a calendar on that
+  // stay's month; tapping the stay opens its details with an Authorise button.
+  const authoriseRequestId = (() => {
+    const q = new URLSearchParams(window.location.search);
+    return q.get('tab') === 'all-bookings' && q.get('booking') ? q.get('booking') : null;
+  })();
+  if (authoriseRequestId) bookingsView.all = 'calendar';
 
   const bookingsCal = {
     my: { year: new Date().getFullYear(), month: new Date().getMonth(), ranges: [], editable: new Map(), positioned: false },
@@ -753,6 +767,31 @@
   // Every booking in the flat's calendar, with the person's name and whether
   // it's confirmed or provisional. Clicking one opens it for editing if it's
   // theirs (or they're an admin); anything else just shows its details.
+  // The note above the calendar when arriving from an authorise link.
+  function showAuthoriseRequestNote(st) {
+    const b = st.editable.get(authoriseRequestId);
+    let note = document.getElementById('authorise-request-note');
+    if (!note) {
+      note = document.createElement('div');
+      note.id = 'authorise-request-note';
+      note.style.marginBottom = '12px';
+      const cal = document.getElementById('all-bookings-cal');
+      cal.parentNode.insertBefore(note, cal);
+    }
+    if (!b) {
+      note.className = 'form-error show';
+      note.textContent = "That booking request couldn't be found — it may have been deleted.";
+      return;
+    }
+    const opts = { weekday: 'short', day: 'numeric', month: 'short' };
+    const when = `${new Date(b.start_date).toLocaleDateString('en-GB', opts)} – ${new Date(b.end_date).toLocaleDateString('en-GB', opts)}`;
+    const who = b.who_going || b.guest_name || 'Guest';
+    note.className = 'form-ok show';
+    note.textContent = b.status === 'confirmed'
+      ? `${who}, ${when}: confirmed.`
+      : `New request: ${who}, ${when}. Tap it on the calendar to view and authorise.`;
+  }
+
   async function loadBookingsCalendar(key) {
     const st = bookingsCal[key];
     const errEl = document.getElementById(`${key}-bookings-cal-error`);
@@ -767,6 +806,13 @@
       ]);
       st.ranges = avail.ranges || [];
       st.editable = new Map((list.bookings || []).filter(isEditable).map((b) => [String(b.id), b]));
+      if (key === 'all' && authoriseRequestId) showAuthoriseRequestNote(st);
+      if (!st.positioned && key === 'all' && authoriseRequestId && st.editable.get(authoriseRequestId)) {
+        st.positioned = true;
+        const start = st.editable.get(authoriseRequestId).start_date;
+        st.year = Number(start.slice(0, 4));
+        st.month = Number(start.slice(5, 7)) - 1;
+      }
       if (!st.positioned) {
         // Open on the month of the next booking from today onwards — the
         // person's own for My bookings, anyone's for All bookings. Only the
@@ -800,7 +846,9 @@
         const range = id && st.ranges.find((r) => String(r.id) === String(id));
         const isPast = range && range.end < todayISO();
         const booking = !isPast && id && st.editable.get(String(id));
-        if (booking) openEditModal(booking, () => reloadBookingsTab(key));
+        if (booking && key === 'all' && String(id) === authoriseRequestId) {
+          openDetailsModal(booking, { authorise: true, reloadFn: () => reloadBookingsTab('all') });
+        } else if (booking) openEditModal(booking, () => reloadBookingsTab(key));
         else showBookingPopup(description);
       },
     });
@@ -814,7 +862,8 @@
     document.querySelectorAll(`[data-bookings-view^="${key}:"]`).forEach((btn) => {
       btn.addEventListener('click', () => {
         bookingsView[key] = btn.dataset.bookingsView.split(':')[1];
-        try { localStorage.setItem('bookingsView', JSON.stringify(bookingsView)); } catch (e) { /* ignore */ }
+        savedBookingsView[key] = bookingsView[key];
+        try { localStorage.setItem('bookingsView', JSON.stringify(savedBookingsView)); } catch (e) { /* ignore */ }
         applyBookingsView(key);
         if (bookingsView[key] === 'calendar') loadBookingsCalendar(key);
       });
@@ -846,8 +895,8 @@
     if (row) { row.classList.add('highlight'); row.scrollIntoView({ block: 'center' }); }
     // Admins (All bookings, from the new-booking email): view + Authorise.
     // Guests (My bookings, from their own email): the edit popup.
-    if (listId === 'all-bookings-list') openDetailsModal(booking, { authorise: isEditable(booking), reloadFn });
-    else if (isEditable(booking)) openEditModal(booking, reloadFn);
+    if (listId === 'all-bookings-list') return; // shown on the calendar instead (see authoriseRequestId)
+    if (isEditable(booking)) openEditModal(booking, reloadFn);
     else openDetailsModal(booking);
   }
 
